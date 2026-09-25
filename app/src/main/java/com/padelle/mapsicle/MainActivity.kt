@@ -85,6 +85,7 @@ class MainActivity : Activity() {
     private var panelCollapsed = true
     private var guidanceActive = false
     private var locationUpdatesActive = false
+    private var cameraFollow = false
     private var pendingPermissionAction = PermissionAction.NONE
 
     private val appLanguage = resolveAppLanguage(Locale.getDefault())
@@ -92,7 +93,10 @@ class MainActivity : Activity() {
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            updateGuidance(location)
+            updatePositionMarker(location)
+            if (guidanceActive) {
+                updateGuidance(location)
+            }
         }
 
         override fun onProviderEnabled(provider: String) = Unit
@@ -133,6 +137,11 @@ class MainActivity : Activity() {
 
         mapView = binding.mapView
         mapView.onCreate(savedInstanceState)
+        // toccare la mappa stacca il follow automatico della camera
+        mapView.setOnTouchListener { _, _ ->
+            cameraFollow = false
+            false
+        }
         mapView.getMapAsync { loadedMap ->
             map = loadedMap
             loadedMap.uiSettings.isAttributionEnabled = true
@@ -146,7 +155,10 @@ class MainActivity : Activity() {
         binding.acceptRouteButton.setOnClickListener { acceptRoute() }
         binding.stopNavigationButton.setOnClickListener { closeGuidance() }
         binding.startGpsButton.setOnClickListener { requestLocation() }
-        binding.locationButton.setOnClickListener { requestLocation() }
+        binding.locationButton.setOnClickListener {
+            cameraFollow = true
+            requestLocation()
+        }
         setPanelCollapsed(panelCollapsed)
         if (BuildConfig.MAPTILER_API_KEY.isBlank()) {
             setRouteStatus(getString(R.string.map_key_missing))
@@ -161,7 +173,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         mapView.onResume()
-        if (guidanceActive) {
+        // il segnalino di posizione segue sempre che l'app e in primo piano
+        if (hasFineLocation()) {
             startLocationUpdates()
         }
     }
@@ -346,9 +359,7 @@ class MainActivity : Activity() {
         routeRequestId += 1
         routeInFlight = false
         renderRoute(EMPTY_ROUTE_GEOJSON)
-        stopLocationUpdates()
-        currentLocationMarker?.remove()
-        currentLocationMarker = null
+        // il segnalino di posizione resta: non fa parte della rotta
         binding.routeContent.visibility = View.VISIBLE
         binding.navigationContent.visibility = View.GONE
         binding.acceptRouteButton.visibility = View.GONE
@@ -497,6 +508,7 @@ class MainActivity : Activity() {
     private fun startGuidance(route: RouteResult) {
         currentRoute = route
         guidanceActive = true
+        cameraFollow = true
         pendingPermissionAction = PermissionAction.NONE
         binding.routeContent.visibility = View.GONE
         binding.navigationContent.visibility = View.VISIBLE
@@ -510,17 +522,19 @@ class MainActivity : Activity() {
         setPanelCollapsed(false)
         updateHeaderSummary()
         startLocationUpdates()
-        singleLocation.lastKnown()?.let(::updateGuidance)
+        singleLocation.lastKnown()?.let { location ->
+            updatePositionMarker(location)
+            updateGuidance(location)
+        }
     }
 
     private fun closeGuidance() {
         if (guidanceActive) {
             guidanceActive = false
-            stopLocationUpdates()
+            cameraFollow = false
             setRouteStatus(getString(R.string.navigation_stopped))
         }
-        currentLocationMarker?.remove()
-        currentLocationMarker = null
+        // gli update restano attivi: il segnalino di posizione continua a seguire
         binding.routeContent.visibility = View.VISIBLE
         binding.navigationContent.visibility = View.GONE
         binding.acceptRouteButton.visibility = View.VISIBLE
@@ -531,7 +545,7 @@ class MainActivity : Activity() {
 
     private fun finishGuidance() {
         guidanceActive = false
-        stopLocationUpdates()
+        cameraFollow = false
         binding.navigationInstruction.text = getString(R.string.navigation_arrived)
         binding.navigationDistance.text = ""
         binding.navigationProgress.text = getString(R.string.navigation_progress, 100)
@@ -540,7 +554,7 @@ class MainActivity : Activity() {
     }
 
     private fun startLocationUpdates() {
-        if (!guidanceActive || locationUpdatesActive) {
+        if (locationUpdatesActive) {
             return
         }
         if (!hasFineLocation()) {
@@ -549,7 +563,9 @@ class MainActivity : Activity() {
         val manager = locationManager()
         var requested = false
         try {
-            manager.getProviders(true).forEach { provider ->
+            // Solo GPS/fused: il provider network puo sbagliare di centinaia di
+            // metri e far saltare il segnalino indietro e avanti.
+            locationProviders(manager).forEach { provider ->
                 try {
                     manager.requestLocationUpdates(
                         provider,
@@ -567,6 +583,18 @@ class MainActivity : Activity() {
         locationUpdatesActive = requested
     }
 
+    private fun locationProviders(manager: LocationManager): List<String> {
+        val enabled = try {
+            manager.getProviders(true).toList()
+        } catch (_: SecurityException) {
+            return emptyList()
+        }
+        val preferred = enabled.filter { provider ->
+            provider == LocationManager.FUSED_PROVIDER || provider == LocationManager.GPS_PROVIDER
+        }
+        return preferred.ifEmpty { enabled }
+    }
+
     private fun stopLocationUpdates() {
         if (!locationUpdatesActive) {
             return
@@ -578,18 +606,31 @@ class MainActivity : Activity() {
         locationUpdatesActive = false
     }
 
+    /**
+     * Sposta il segnalino di posizione riusando lo stesso Marker: MapLibre ha
+     * setPosition(), non serve (e non conviene) rimuovere e ricreare l'annotazione
+     * a ogni fix.
+     */
+    private fun updatePositionMarker(location: Location) {
+        val position = LatLng(location.latitude, location.longitude)
+        val marker = currentLocationMarker
+        if (marker == null) {
+            currentLocationMarker = addMarker(
+                location.latitude,
+                location.longitude,
+                R.string.my_location,
+            )
+        } else {
+            marker.position = position
+        }
+    }
+
     private fun updateGuidance(location: Location) {
         if (!guidanceActive) {
             return
         }
         val route = currentRoute ?: return
         val progress = calculateRouteProgress(route, location.latitude, location.longitude)
-        currentLocationMarker?.remove()
-        currentLocationMarker = addMarker(
-            location.latitude,
-            location.longitude,
-            R.string.my_location,
-        )
 
         if (progress.arrived) {
             finishGuidance()
@@ -618,16 +659,24 @@ class MainActivity : Activity() {
             target.latitude,
             target.longitude,
         )
-        map?.animateCamera(
-            CameraUpdateFactory.newCameraPosition(
-                CameraPosition.Builder()
-                    .target(LatLng(location.latitude, location.longitude))
-                    .zoom(16.0)
-                    .bearing(bearing.toDouble())
-                    .build(),
-            ),
-            CAMERA_ANIMATION_MS,
-        )
+        // Non forzare lo zoom a ogni fix: se l'utente ha scelto un livello, resta.
+        if (cameraFollow) {
+            map?.animateCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder()
+                        .target(LatLng(location.latitude, location.longitude))
+                        .zoom(currentMapZoom())
+                        .bearing(bearing.toDouble())
+                        .build(),
+                ),
+                CAMERA_ANIMATION_MS,
+            )
+        }
+    }
+
+    private fun currentMapZoom(): Double {
+        val current = map?.cameraPosition?.zoom ?: GUIDANCE_ZOOM
+        return current.coerceIn(MIN_FOLLOW_ZOOM, MAX_FOLLOW_ZOOM)
     }
 
     @Suppress("DEPRECATION")
@@ -840,6 +889,9 @@ class MainActivity : Activity() {
         const val LOCATION_UPDATE_INTERVAL_MS = 1_000L
         const val LOCATION_UPDATE_MIN_DISTANCE_METERS = 2f
         const val CAMERA_ANIMATION_MS = 600
+        const val GUIDANCE_ZOOM = 16.0
+        const val MIN_FOLLOW_ZOOM = 12.0
+        const val MAX_FOLLOW_ZOOM = 18.0
         const val NETWORK_TIMEOUT_SECONDS = 10L
         const val ROUTE_SOURCE_ID = "route"
         const val ROUTE_LAYER_ID = "route-line"
