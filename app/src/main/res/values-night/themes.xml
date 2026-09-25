@@ -3,6 +3,7 @@
     <style name="Theme.Mapsicle" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/panel_surface</item>
         <item name="android:colorAccent">@color/text_link</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@color/status_bar</item>

@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+    <!-- targetSdk 36 = edge-to-edge obbligatorio: senza fitsSystemWindows il pannello in
+         alto finisce sotto la barra di stato e il bottone posizione sotto quella di
+         navigazione. Le due strisce rimaste libere mostrano il windowBackground. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
     <org.maplibre.android.maps.MapView
         android:id="@+id/mapView"
@@ -57,6 +61,16 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
             </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/clearRouteButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/clear_itinerary"
+                android:padding="12dp"
+                android:src="@drawable/ic_close"
+                android:tint="@color/icon_tint" />
 
             <ImageButton
                 android:id="@+id/collapseButton"

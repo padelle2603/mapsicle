@@ -4,6 +4,7 @@
     <string name="itinerary_empty_summary">Choose start and destination</string>
     <string name="collapse_route_panel">Collapse itinerary</string>
     <string name="expand_route_panel">Expand itinerary</string>
+    <string name="clear_itinerary">Clear itinerary</string>
     <string name="start_label">From</string>
     <string name="start_hint">Where from?</string>
     <string name="destination_label">To</string>

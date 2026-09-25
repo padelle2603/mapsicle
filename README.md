@@ -19,7 +19,8 @@ Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK
   the list is refilled to five. Position is rounded to ~111 m before being sent
   to Photon, and nothing is sent at all until you grant location permission.
 - **Routing**: turn-by-turn guidance with distance, duration and maneuver
-  instructions computed from BRouter.
+  instructions computed from BRouter. One button in the panel header clears the
+  whole itinerary, and "Stop navigation" does the same while guiding.
 - **Localization**: full Italian and English support for the UI, map labels,
   search results and turn instructions. Follows the system locale.
 - **Position**: a solid blue dot follows you continuously while the app is in

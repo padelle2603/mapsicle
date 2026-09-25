@@ -174,7 +174,12 @@ class MainActivity : Activity() {
         configureSearchField(binding.destinationInput)
         binding.routeButton.setOnClickListener { calculateRoute() }
         binding.acceptRouteButton.setOnClickListener { acceptRoute() }
-        binding.stopNavigationButton.setOnClickListener { closeGuidance() }
+        binding.stopNavigationButton.setOnClickListener {
+            // "Termina guida" chiude e azzera, "Chiudi guida" (dopo l'arrivo) lascia
+            // l'itinerario com'era
+            if (guidanceActive) clearItinerary() else closeGuidance()
+        }
+        binding.clearRouteButton.setOnClickListener { clearItinerary() }
         binding.startGpsButton.setOnClickListener { requestLocation() }
         binding.locationButton.setOnClickListener {
             // il pulsante in basso a destra centra e basta: non deve sovrascrivere
@@ -565,6 +570,16 @@ class MainActivity : Activity() {
         binding.stopNavigationButton.visibility = View.GONE
         updateRouteButton()
         updateHeaderSummary()
+    }
+
+    /**
+     * Svuota partenza e destinazione. I TextWatcher fanno il resto: azzerano i place,
+     * tolgono i segnalini, invalidano la rotta e i suggerimenti del campo attivo.
+     */
+    private fun clearItinerary() {
+        closeGuidance()
+        binding.startInput.setText("")
+        binding.destinationInput.setText("")
     }
 
     private fun finishGuidance() {
