@@ -643,6 +643,10 @@ class MainActivity : Activity() {
     private fun updatePositionMarker(location: Location) {
         lastUserFix = location
         userLocated = true
+        // Ogni fix arriva qui (cache d'avvio, one-shot, live), quindi e' l'unico punto in
+        // cui la ricerca impara da dove ci siamo: Photon lo usa solo per ordinare i
+        // risultati, non per filtrare, quindi una ricerca lontana continua a funzionare.
+        suggestions.center = SearchCenter(location.latitude, location.longitude)
         val position = LatLng(location.latitude, location.longitude)
         val marker = currentLocationMarker
         if (marker == null) {

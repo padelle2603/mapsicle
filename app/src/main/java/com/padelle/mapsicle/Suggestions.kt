@@ -15,6 +15,10 @@ internal class Suggestions(
     private var droppedWhileBusy = false
     private var latestQuery: String? = null
 
+    // Punto su cui Photon basa il ranking. Null = nessun bias, cioe' il comportamento
+    // di prima: la app non conosce la posizione finche' il permesso non e' concesso.
+    var center: SearchCenter? = null
+
     var onSearching: (() -> Unit)? = null
     var onResults: ((List<SearchPlace>) -> Unit)? = null
     var onError: (() -> Unit)? = null
@@ -59,7 +63,7 @@ internal class Suggestions(
         onSearching?.invoke()
         executor.execute {
             val result = runCatching {
-                parseSuggestions(fetchJson(buildSuggestionUrl(query, language)))
+                parseSuggestions(fetchJson(buildSuggestionUrl(query, language, center)))
             }
             handler.post {
                 inFlight = false

@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class SearchTest {
     @Test
@@ -12,10 +13,61 @@ class SearchTest {
         val englishUrl = buildSuggestionUrl("Piazza del Duomo Milano", ENGLISH_LANGUAGE)
 
         assertTrue(italianUrl.startsWith("https://photon.komoot.io/api/?"))
-        assertTrue(italianUrl.contains("limit=5"))
+        assertTrue(italianUrl.contains("limit=10"))
         assertTrue(italianUrl.contains("q=Piazza+del+Duomo+Milano"))
         assertFalse(italianUrl.contains("lang="))
         assertTrue(englishUrl.endsWith("&lang=en"))
+    }
+
+    @Test
+    fun omitsLocationBiasWhenPositionIsUnknown() {
+        // Senza permesso posizione non c'e' center: l'URL deve essere identico a prima,
+        // senza parametri di bias, altrimenti la ricerca cambierebbe comportamento.
+        val url = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE)
+
+        assertFalse(url.contains("lat="))
+        assertFalse(url.contains("lon="))
+        assertFalse(url.contains("location_bias_scale"))
+        assertFalse(url.contains("zoom="))
+    }
+
+    @Test
+    fun addsMeasuredLocationBiasWhenPositionIsKnown() {
+        // 0.4 / z12: raggio 16km. I default di Photon (0.2 / z16 = 1km) fanno vincere
+        // una panetteria omonima cercando "Roma" da Milano.
+        val url = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.4642, 9.19))
+
+        assertTrue(url.contains("&lat=45.464"))
+        assertTrue(url.contains("&lon=9.190"))
+        assertTrue(url.contains("&location_bias_scale=0.4"))
+        assertTrue(url.contains("&zoom=12"))
+    }
+
+    @Test
+    fun roundsCoordinatesToKeepTheHttpCacheUsable() {
+        // OkHttp indicizza la cache del disco sull'URL: a piena precisione ogni fix
+        // creerebbe una chiave nuova. Verifichiamo che ~111m di differenza finiscano
+        // nella stessa stringa.
+        val first = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.46421, 9.18998))
+        val second = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.46429, 9.19003))
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun formatsCoordinatesWithADotEvenInACommaLocale() {
+        // Su un telefono italiano String.format userebbe la virgola e "45,464" non
+        // sarebbe la coordinata giusta per Photon.
+        val default = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.ITALY)
+            val url = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.4642, 9.19))
+            assertTrue(url.contains("&lat=45.464"))
+            assertTrue(url.contains("&lon=9.190"))
+            assertFalse(url.contains("45,464"))
+        } finally {
+            Locale.setDefault(default)
+        }
     }
 
     @Test
@@ -29,5 +81,38 @@ class SearchTest {
         assertEquals(1, results.size)
         assertEquals("Duomo, Milano, Italy", results.single().displayName)
         assertEquals(45.46, results.single().latitude, 0.0001)
+    }
+
+    @Test
+    fun dropsDuplicatesAndKeepsFillingTheList() {
+        // Con il bias gli omonimi vicini si ripetono: due stazioni a 30m con lo stesso
+        // nome e indirizzo. Chiediamo 10 e teniamo i primi 5 unici, cosi' l'elenco non
+        // si accorcia.
+        val feature = { id: String, lon: String, lat: String ->
+            """{"type":"Feature","properties":{"name":"$id","street":"Via Roma","city":"Milano"},"geometry":{"type":"Point","coordinates":[$lon,$lat]}}"""
+        }
+        val json = buildString {
+            append("""{"features":[""")
+            append(feature("Duomo A", "9.1890", "45.4640"))
+            append(",")
+            append(feature("Duomo A", "9.1891", "45.4641"))   // duplicato
+            append(",")
+            append(feature("Duomo B", "9.1900", "45.4650"))
+            append(",")
+            append(feature("Duomo B", "9.1901", "45.4651"))   // duplicato
+            append(",")
+            repeat(8) { i ->
+                if (i > 0) append(",")
+                append(feature("Piazzale $i", "9.2$i", "45.47$i"))
+            }
+            append("]}")
+        }
+
+        val results = parseSuggestions(json)
+
+        assertEquals(5, results.size)
+        assertEquals("Duomo A, Via Roma, Milano", results[0].displayName)
+        assertEquals("Duomo B, Via Roma, Milano", results[1].displayName)
+        assertEquals(5, results.map { it.displayName }.distinct().size)
     }
 }

@@ -13,7 +13,11 @@ Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK
   of 167 KB, with the same colours (green parks, blue water, green woodland).
 - **Search**: geocoding via Photon, debounced, served from a small thread pool
   with an on-disk HTTP cache. Results are shown as soon as they arrive and then
-  refined, instead of being thrown away and re-fetched.
+  refined, instead of being thrown away and re-fetched. Results are ranked
+  around your position (radius 16 km, prominence weighted 40%), so "pizzeria"
+  finds the one nearby and "Roma" still finds Rome. Duplicates are dropped and
+  the list is refilled to five. Position is rounded to ~111 m before being sent
+  to Photon, and nothing is sent at all until you grant location permission.
 - **Routing**: turn-by-turn guidance with distance, duration and maneuver
   instructions computed from BRouter.
 - **Localization**: full Italian and English support for the UI, map labels,
