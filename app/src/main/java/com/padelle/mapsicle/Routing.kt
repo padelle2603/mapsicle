@@ -102,7 +102,7 @@ internal fun parseRouteResponse(json: String): RouteResult {
 }
 
 internal fun RouteResult.toGeoJson(): String {
-    val coordinates = coordinates.joinToString(",") { "${it.longitude},${it.latitude}" }
+    val coordinates = coordinates.joinToString(",") { "[${it.longitude},${it.latitude}]" }
     return "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coordinates]}}]}"
 }
 

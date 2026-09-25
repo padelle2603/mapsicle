@@ -19,6 +19,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
 import com.padelle.mapsicle.databinding.ActivityMainBinding
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.maplibre.android.MapLibre
@@ -33,8 +34,10 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.module.http.HttpRequestUtil
 import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
@@ -49,13 +52,15 @@ class MainActivity : Activity() {
     private lateinit var mapView: MapView
     private var map: MapLibreMap? = null
 
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    // 3 thread: scarica dello stile, routing e ricerca non si bloccano a vicenda.
+    private val executor: ExecutorService = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .cache(Cache(File(cacheDir, "http"), HTTP_CACHE_BYTES))
             .addInterceptor { chain ->
                 val request = chain.request()
                     .newBuilder()
@@ -336,6 +341,10 @@ class MainActivity : Activity() {
         pendingPermissionAction = PermissionAction.NONE
         guidanceActive = false
         currentRoute = null
+        // invalida anche la richiesta in volo, altrimenti puo landingare sulla mappa
+        // una rotta calcolata per luoghi che l'utente ha gia cambiato
+        routeRequestId += 1
+        routeInFlight = false
         renderRoute(EMPTY_ROUTE_GEOJSON)
         stopLocationUpdates()
         currentLocationMarker?.remove()
@@ -346,6 +355,7 @@ class MainActivity : Activity() {
         binding.stopNavigationButton.visibility = View.GONE
         binding.routeSummary.visibility = View.GONE
         setRouteStatus("")
+        updateRouteButton()
         updateHeaderSummary()
     }
 
@@ -423,7 +433,10 @@ class MainActivity : Activity() {
                 style.addLayer(
                     LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
                         PropertyFactory.lineColor(getColor(R.color.route_line)),
-                        PropertyFactory.lineWidth(6f),
+                        PropertyFactory.lineWidth(8f),
+                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                        PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                        PropertyFactory.lineOpacity(1f),
                     ),
                 )
             }
@@ -436,7 +449,39 @@ class MainActivity : Activity() {
         route.coordinates.forEach { point ->
             bounds.include(LatLng(point.latitude, point.longitude))
         }
-        currentMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), dp(48)))
+        val padding = routeCameraPadding()
+        currentMap.animateCamera(
+            if (padding == null) {
+                CameraUpdateFactory.newLatLngBounds(bounds.build(), dp(48))
+            } else {
+                CameraUpdateFactory.newLatLngBounds(
+                    bounds.build(),
+                    padding[0],
+                    padding[1],
+                    padding[2],
+                    padding[3],
+                )
+            },
+        )
+    }
+
+    /**
+     * Il pannello di ricerca e ancorato in alto: senza un padding asimmetrico la camera
+     * centra la rotta sullo schermo e la meta superiore finisce sotto il pannello.
+     */
+    private fun routeCameraPadding(): IntArray? {
+        val mapHeight = binding.mapView.height
+        if (mapHeight <= 0) {
+            return null
+        }
+        val panelHeight = binding.searchPanel.height
+        if (panelHeight <= 0) {
+            return null
+        }
+        val side = dp(24)
+        val bottom = dp(72)
+        val top = (panelHeight + dp(12)).coerceAtMost((mapHeight - bottom - dp(48)).coerceAtLeast(side))
+        return intArrayOf(side, top, side, bottom)
     }
 
     private fun acceptRoute() {
@@ -651,6 +696,9 @@ class MainActivity : Activity() {
             .target(LatLng(42.5, 12.5))
             .zoom(5.0)
             .build()
+        // Source e layer della rotta vivono solo nel runtime: se lo stile viene ricreato
+        // (rotazione, restore di MapView) vanno persi, quindi li riaggiungo qui.
+        currentRoute?.let { renderRoute(it.toGeoJson()) }
         updateEndpointMarkers()
     }
 
@@ -796,6 +844,7 @@ class MainActivity : Activity() {
         const val ROUTE_SOURCE_ID = "route"
         const val ROUTE_LAYER_ID = "route-line"
         const val EMPTY_ROUTE_GEOJSON = "{\"type\":\"FeatureCollection\",\"features\":[]}"
+        const val HTTP_CACHE_BYTES = 20L * 1024 * 1024
         const val STATE_PANEL_COLLAPSED = "panel_collapsed"
     }
 }

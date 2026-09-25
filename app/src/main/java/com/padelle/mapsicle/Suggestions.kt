@@ -1,7 +1,6 @@
 package com.padelle.mapsicle
 
 import android.os.Handler
-import android.os.SystemClock
 import java.util.concurrent.Executor
 
 internal class Suggestions(
@@ -12,8 +11,8 @@ internal class Suggestions(
 ) {
     private var pending: Runnable? = null
     private var generation = 0
-    private var lastRequestAt = 0L
     private var inFlight = false
+    private var droppedWhileBusy = false
     private var latestQuery: String? = null
 
     var onSearching: (() -> Unit)? = null
@@ -52,17 +51,11 @@ internal class Suggestions(
             return
         }
         if (inFlight) {
-            return
-        }
-        val wait = THROTTLE_MS - (SystemClock.elapsedRealtime() - lastRequestAt)
-        if (wait > 0) {
-            val runnable = Runnable { fetch(query, gen) }
-            pending = runnable
-            handler.postDelayed(runnable, wait)
+            // Non perdere la richiesta: verrà recuperata al completamento di quella in corso.
+            droppedWhileBusy = true
             return
         }
         inFlight = true
-        lastRequestAt = SystemClock.elapsedRealtime()
         onSearching?.invoke()
         executor.execute {
             val result = runCatching {
@@ -70,11 +63,9 @@ internal class Suggestions(
             }
             handler.post {
                 inFlight = false
-                if (gen != generation) {
-                    val next = latestQuery
-                    if (next != null && next != query) {
-                        request(next, immediate = true)
-                    }
+                if (gen != generation || droppedWhileBusy) {
+                    droppedWhileBusy = false
+                    latestQuery?.let { request(it, immediate = true) }
                     return@post
                 }
                 result.onSuccess { onResults?.invoke(it) }
@@ -89,8 +80,7 @@ internal class Suggestions(
     }
 
     private companion object {
-        const val DEBOUNCE_MS = 300L
-        const val THROTTLE_MS = 1_100L
+        const val DEBOUNCE_MS = 250L
         const val MIN_QUERY_LENGTH = 3
     }
 }

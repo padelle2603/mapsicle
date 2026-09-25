@@ -34,7 +34,23 @@ class RoutingTest {
         assertEquals(2, route.steps.size)
         assertEquals(2, route.steps[1].command)
         assertEquals(R.string.nav_turn_left, route.steps[1].instructionRes())
-        assertTrue(route.toGeoJson().contains("LineString"))
+        assertTrue(route.toGeoJson().contains("\"coordinates\":[[9.19,45.46],[9.195,45.465],[9.2,45.47]]"))
+    }
+
+    @Test
+    fun dropsElevationFromRouteGeoJson() {
+        // BRouter con timode=3 risponde con coordinate 3D [lon, lat, quota]
+        val route = parseRouteResponse(
+            """
+            {"features":[{"type":"Feature","properties":{"track-length":"10","total-time":"5"},"geometry":{"type":"LineString","coordinates":[[12.500605,42.500165,86.0],[12.599686,42.600017,240.25]]}}]}
+            """.trimIndent(),
+        )
+
+        val geoJson = route.toGeoJson()
+
+        assertTrue(geoJson.contains("\"coordinates\":[[12.500605,42.500165],[12.599686,42.600017]]"))
+        assertTrue("non deve contenere la quota", !geoJson.contains("86.0"))
+        assertTrue("non deve contenere la quota", !geoJson.contains("240.25"))
     }
 
     @Test
