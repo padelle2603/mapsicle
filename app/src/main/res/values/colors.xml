@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="panel_surface">#FFFFFFFF</color>
+    <color name="panel_outline">#1F000000</color>
+    <color name="input_surface">#FFFFFFFF</color>
+    <color name="input_outline">#33000000</color>
+    <color name="text_primary">#202124</color>
+    <color name="text_secondary">#5F6368</color>
+    <color name="text_link">#1565C0</color>
+    <color name="route_line">#1565C0</color>
+    <color name="icon_tint">#5F6368</color>
+    <color name="status_bar">#FFFFFFFF</color>
+    <color name="navigation_bar">#FFFFFFFF</color>
+</resources>

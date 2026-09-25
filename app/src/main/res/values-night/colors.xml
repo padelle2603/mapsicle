@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="panel_surface">#FF121214</color>
+    <color name="panel_outline">#6034363B</color>
+    <color name="input_surface">#FF1A1B1E</color>
+    <color name="input_outline">#803A3C42</color>
+    <color name="text_primary">#FFF5F5F5</color>
+    <color name="text_secondary">#FFB8BBC0</color>
+    <color name="text_link">#FF8AB4F8</color>
+    <color name="icon_tint">#FFFFFFFF</color>
+    <color name="status_bar">#FF0B0B0C</color>
+    <color name="navigation_bar">#FF0B0B0C</color>
+</resources>

@@ -1,0 +1,17 @@
+# Build
+build/
+app/build/
+.gradle/
+.kotlin/
+
+# Config/secrets locali
+local.properties
+pc-test.local.js
+*.jks
+*.keystore
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
