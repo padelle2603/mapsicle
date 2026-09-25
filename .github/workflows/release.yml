@@ -27,18 +27,48 @@ jobs:
       - name: Recupera keystore
         run: mkdir -p keystore && echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/mapsicle.jks
 
-      - name: Build release APK
+      - name: Calcola versionCode e verifica che cresca
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # versionCode derivato dal tag (0.4.0 -> 1004) cosi' cresce da sola a ogni
-          # release: installare sopra una versione precedente non viene rifiutato.
+          # versionCode = major*1000000 + minor*1000 + patch (0.6.1 -> 6001). Contano
+          # tutti e tre i componenti: la formula precedente ignorava il patch, quindi
+          # v0.5.1 e' uscito con lo stesso versionCode di v0.5.0 (1005) e Android non
+          # lo installava sopra. Ricominciamo da 4000/5000/6000: un buco nel numbering
+          # non importa, conta solo che cresca sempre.
           version="${GITHUB_REF_NAME#v}"
           major="${version%%.*}"
-          minor_and_rest="${version#*.}"
-          minor="${minor_and_rest%%.*}"
-          version_code=$(( 1000 * (major + 1) + minor ))
+          rest="${version#*.}"
+          minor="${rest%%.*}"
+          patch="${rest##*.}"
+          version_code=$(( major * 1000000 + minor * 1000 + patch ))
+
+          # Se il versionCode non cresce, il pacchetto viene rifiutato come downgrade e
+          # dopo la release non si puo' piu' rimediare. La release corrente non esiste
+          # ancora qui: viene pubblicata dopo il build.
+          previous="$(gh release list --limit 1 --json tagName -q '.[0].tagName' || true)"
+          if [ -n "$previous" ] && [ "$previous" != "$GITHUB_REF_NAME" ]; then
+            prev_version="${previous#v}"
+            prev_major="${prev_version%%.*}"
+            prev_rest="${prev_version#*.}"
+            prev_minor="${prev_rest%%.*}"
+            prev_patch="${prev_rest##*.}"
+            previous_code=$(( prev_major * 1000000 + prev_minor * 1000 + prev_patch ))
+            if [ "$version_code" -le "$previous_code" ]; then
+              echo "::error::versionCode $version_code non supera $previous_code di $previous"
+              exit 1
+            fi
+            echo "versionCode $previous_code ($previous) -> $version_code ($GITHUB_REF_NAME)"
+          else
+            echo "prima release: versionCode $version_code"
+          fi
           echo "versionName=${version} versionCode=${version_code}"
+          echo "version_code=$version_code" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        run: |
           ./gradlew :app:assembleRelease \
-            -PversionName="$version" \
+            -PversionName="${GITHUB_REF_NAME#v}" \
             -PversionCode="$version_code"
         env:
           KEYSTORE_PATH: keystore/mapsicle.jks

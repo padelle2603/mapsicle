@@ -72,7 +72,7 @@ KEY_PASSWORD=... \
 Version can be overridden per build:
 
 ```bash
-./gradlew :app:assembleRelease -PversionCode=1004 -PversionName=0.4.0
+./gradlew :app:assembleRelease -PversionCode=6000 -PversionName=0.6.0
 ```
 
 ## Tests
@@ -90,13 +90,15 @@ Pushing a `v*` tag builds a signed APK with GitHub Actions and publishes it as
 a release asset:
 
 ```bash
-git tag -a v0.4.0 -m "Mapsicle v0.4.0"
-git push origin v0.4.0
+git tag -a v0.6.0 -m "Mapsicle v0.6.0"
+git push origin v0.6.0
 ```
 
-`versionName` comes from the tag and `versionCode` is derived from it
-(`0.4.0` → `1004`), so it always increases and an install over a previous
-release is accepted.
+`versionName` comes from the tag and `versionCode` is derived from all three
+of its components as `major*1000000 + minor*1000 + patch` (`0.6.0` → `6000`).
+The build fails if that number would not be higher than the previous
+release's, because Android rejects a non-increasing `versionCode` as a
+downgrade and a published release cannot be taken back.
 
 See `.github/workflows/release.yml`. The required repository secrets are
 `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`.
