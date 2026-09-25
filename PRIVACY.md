@@ -149,8 +149,16 @@ device, under their own terms and privacy policies, and they keep their usual
 server logs (as any web server does). Mapsicle is **not affiliated with,
 endorsed by or certified by** any of them.
 
+**No availability guarantee.** These services are offered as they are, by
+volunteers, with no service level: they can be slow, rate-limited, overloaded,
+moved or discontinued at any time, and a public instance can start refusing
+requests without notice. Mapsicle gives **no guarantee that search, tiles or
+routing will work at any given moment**, and it cannot do anything about it if
+they do not. Nothing in the app works around their limits.
+
 The full list of bundled third-party components and their licenses is in
-[LEGAL.md](LEGAL.md).
+[LEGAL.md](LEGAL.md), and the same license texts are inside the app: tap the
+`© OpenStreetMap contributors` line at the bottom of the panel.
 
 ## 7. Children
 

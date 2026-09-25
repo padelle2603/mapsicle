@@ -10,6 +10,8 @@ Mapsicle is free software, released under the **MIT License**.
   versions of it, you must keep the copyright notice and the license text.
 - There is **no warranty** — see the MIT license, sections "THE SOFTWARE IS
   PROVIDED AS IS". Use it at your own risk.
+- The same text is bundled in the app: tap the `© OpenStreetMap contributors`
+  line at the bottom of the panel.
 
 The map data is **not** covered by the MIT license: see the attributions below.
 
@@ -36,6 +38,12 @@ Build-time only (not shipped in the APK): the Android Gradle Plugin and the
 Android SDK from Google, Gradle from Gradle Inc. (Apache-2.0), and the JDK
 (Temurin, GPL-2.0-with-classpath-exception) used in CI.
 
+The full license texts of everything above — MIT, Apache-2.0, BSD-2-Clause —
+**ship inside the APK** (`app/src/main/assets/licenses.txt`) and are readable
+from the app by tapping the credit line at the bottom of the panel. That is
+what Apache-2.0 §4(a) and §4(d) require: the license travels with the binary,
+not only with its source. Keep the asset in the app if you fork Mapsicle.
+
 ## Map data and attribution
 
 - Map data is © [OpenStreetMap](https://www.openstreetmap.org/copyright)
@@ -48,6 +56,10 @@ Android SDK from Google, Gradle from Gradle Inc. (Apache-2.0), and the JDK
 - The visible attribution *"OpenFreeMap · © OpenMapTiles · Data from
   OpenStreetMap"* is rendered by the attribution control inside the app, as the
   ODbL requires. **If you redistribute Mapsicle, keep that attribution visible.**
+- The line `© OpenStreetMap contributors` is also always on screen, at the
+  bottom of the panel, collapsed or not, and opens the app's licenses on tap.
+  This is the one line to keep if you fork the app: it is the ODbL credit, and
+  it is also how the license texts stay reachable.
 
 ## Third-party services
 

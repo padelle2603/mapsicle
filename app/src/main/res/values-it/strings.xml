@@ -57,4 +57,7 @@
     <string name="nav_exit_left">Esci a sinistra</string>
     <string name="nav_exit_right">Esci a destra</string>
     <string name="nav_continue_path">Continua sul percorso</string>
+    <string name="map_credit">© OpenStreetMap contributors · Licenze</string>
+    <string name="about_title">Informazioni su Mapsicle</string>
+    <string name="about_close">Chiudi</string>
 </resources>

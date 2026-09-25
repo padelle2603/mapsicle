@@ -323,6 +323,22 @@
                     android:textAllCaps="false" />
             </LinearLayout>
         </LinearLayout>
+
+        <!-- Credito OSM sempre visibile: obbligo ODbL anche a pannello compresso.
+             Un tocco apre le licenze (testi in assets/licenses.txt). -->
+        <TextView
+            android:id="@+id/mapCredit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:text="@string/map_credit"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout

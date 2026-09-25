@@ -9,6 +9,7 @@ package com.padelle.mapsicle
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -20,6 +21,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
+import android.text.method.ScrollingMovementMethod
 import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.View
@@ -180,6 +182,7 @@ class MainActivity : Activity() {
             if (guidanceActive) clearItinerary() else closeGuidance()
         }
         binding.clearRouteButton.setOnClickListener { clearItinerary() }
+        binding.mapCredit.setOnClickListener { showLicenses() }
         binding.startGpsButton.setOnClickListener { requestLocation() }
         binding.locationButton.setOnClickListener {
             // il pulsante in basso a destra centra e basta: non deve sovrascrivere
@@ -1029,6 +1032,23 @@ class MainActivity : Activity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    // Credito OSM toccabile: qui finisce l'obbligo di consegna delle licenze
+    // (Apache-2.0 sez. 4a/4d). Un TextView scrollabile dentro la dialog: 15 KB di
+    // testo, niente WebView e nessuna dipendenza nuova. Niente textIsSelectable:
+    // si mette in conflitto con il drag per lo scroll.
+    private fun showLicenses() {
+        val text = TextView(this).apply {
+            movementMethod = ScrollingMovementMethod()
+            setPadding(dp(20), dp(16), dp(20), dp(16))
+        }
+        text.text = assets.open("licenses.txt").bufferedReader().use { it.readText() }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.about_title)
+            .setView(text)
+            .setPositiveButton(R.string.about_close, null)
+            .show()
+    }
 
     private enum class PermissionAction {
         NONE,

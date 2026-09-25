@@ -135,6 +135,9 @@ contributors. Map data is available under the
 [ODbL](https://opendatacommons.org/licenses/odbl/). The basemap is provided by
 [OpenFreeMap](https://openfreemap.org/).
 Please keep the attribution visible if you redistribute this app.
+The credit line is always on screen at the bottom of the panel; tapping it
+opens the app's own licenses (MIT, Apache-2.0, BSD-2-Clause), which also ship
+inside the APK.
 The full list of bundled third-party components and their licenses is in
 [LEGAL.md](LEGAL.md).
 
