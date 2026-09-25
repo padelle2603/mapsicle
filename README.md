@@ -8,9 +8,9 @@ Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK
 
 ## Features
 
-- **Map**: MapLibre vector map on OpenFreeMap Positron. No API key, no account:
-  55 layers instead of the 160 of MapTiler Streets, and a 25 KB style instead of
-  167 KB.
+- **Map**: MapLibre vector map on OpenFreeMap Liberty. No API key, no account:
+  111 layers instead of the 160 of MapTiler Streets, and a 43 KB style instead
+  of 167 KB, with the same colours (green parks, blue water, green woodland).
 - **Search**: geocoding via Photon, debounced, served from a small thread pool
   with an on-disk HTTP cache. Results are shown as soon as they arrive and then
   refined, instead of being thrown away and re-fetched.
@@ -18,10 +18,9 @@ Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK
   instructions computed from BRouter.
 - **Localization**: full Italian and English support for the UI, map labels,
   search results and turn instructions. Follows the system locale.
-- **Position**: the puck follows you continuously while the app is in the
-  foreground, with a direction cone while you move (MapLibre `LocationComponent`
-  in compass render mode). The camera locks onto you during guidance and
-  releases as soon as you touch the map; the "my location" button re-arms it.
+- **Position**: a solid blue dot follows you continuously while the app is in
+  the foreground. The camera locks onto you during guidance and releases as soon
+  as you touch the map; the "my location" button re-arms it.
 - **Startup geolocation**: if location permission is already granted, the app
   opens centered on where you are. It never prompts for permission on launch.
   It first paints the last fix the system already knows, so the map moves

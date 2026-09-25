@@ -1,9 +1,18 @@
+// In MapLibre 13 l'intera API annotation (Marker, MarkerOptions, Icon, IconFactory,
+// addMarker) e' deprecata in favore degli strati symbol. La usiamo comunque qui: i
+// tre segnalini sono annotazioni statiche, non dati, e sostituirli con layer symbol
+// costerebbe piu' codice per un vantaggio che qui non si vede. Sopprimere a file
+// intero per non avere 11 warning identici a ogni build.
+@file:Suppress("DEPRECATION")
+
 package com.padelle.mapsicle
 
 import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -22,15 +31,14 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.maplibre.android.MapLibre
+import org.maplibre.android.annotations.Icon
+import org.maplibre.android.annotations.IconFactory
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
-import org.maplibre.android.location.LocationComponentActivationOptions
-import org.maplibre.android.location.modes.CameraMode
-import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -78,6 +86,7 @@ class MainActivity : Activity() {
     private var destinationPlace: SearchPlace? = null
     private var startMarker: Marker? = null
     private var destinationMarker: Marker? = null
+    private var currentLocationMarker: Marker? = null
     private var currentRoute: RouteResult? = null
     private var latestSuggestions: List<SearchPlace> = emptyList()
     private var routeInFlight = false
@@ -93,7 +102,6 @@ class MainActivity : Activity() {
     // ricaricato e per decidere dove mettere la camera al primo avvio.
     private var lastUserFix: Location? = null
     private var userLocated = false
-    private var locationComponentReady = false
 
     private val appLanguage = resolveAppLanguage(Locale.getDefault())
     private val displayLocale = appLocale(appLanguage)
@@ -635,32 +643,18 @@ class MainActivity : Activity() {
     private fun updatePositionMarker(location: Location) {
         lastUserFix = location
         userLocated = true
-        // Il segnalino lo disegna il LocationComponent; forceLocationUpdate e' il nostro
-        // modo di passargli i fix, cosi' restano SingleLocation (cache) e i permessi.
-        if (locationComponentReady) {
-            map?.locationComponent?.forceLocationUpdate(location)
+        val position = LatLng(location.latitude, location.longitude)
+        val marker = currentLocationMarker
+        if (marker == null) {
+            currentLocationMarker = addMarker(
+                location.latitude,
+                location.longitude,
+                R.string.my_location,
+                R.drawable.ic_user_position,
+            )
+        } else {
+            marker.position = position
         }
-    }
-
-    /**
-     * LocationComponent di MapLibre: da fermo un punto con alone pulsante e cerchio di
-     * precisione, in movimento un puck col cono di direzione. Niente da configurare,
-     * usa gia' gli asset e il tema di MapLibre. Va riattivato a ogni reload dello stile
-     * perche' i suoi layer vivono nel runtime.
-     */
-    private fun activateLocationComponent(loadedMap: MapLibreMap) {
-        val style = loadedMap.style ?: return
-        val component = loadedMap.locationComponent
-        component.activateLocationComponent(
-            LocationComponentActivationOptions.Builder(this, style)
-                .useDefaultLocationEngine(false)
-                .useSpecializedLocationLayer(true)
-                .build()
-        )
-        // La camera la guidiamo gia' a mano con cameraFollow: qui solo il segnalino.
-        component.setCameraMode(CameraMode.NONE_GPS)
-        component.setRenderMode(RenderMode.COMPASS)
-        locationComponentReady = true
     }
 
     private fun updateGuidance(location: Location) {
@@ -728,12 +722,33 @@ class MainActivity : Activity() {
     }
 
     @Suppress("DEPRECATION")
-    private fun addMarker(latitude: Double, longitude: Double, titleRes: Int): Marker? {
-        return map?.addMarker(
-            MarkerOptions()
-                .position(LatLng(latitude, longitude))
-                .title(getString(titleRes)),
-        )
+    /**
+     * IconFactory.fromResource() in MapLibre 13 accetta solo BitmapDrawable e lancia
+     * IllegalArgumentException su un drawable vettoriale, quindi rasterizzo a mano.
+     * 96px per il cerchio da 24dp: abbondante anche su schermi xxxhdpi.
+     */
+    private fun bitmapIcon(iconRes: Int): Icon? {
+        val drawable = resources.getDrawable(iconRes, theme) ?: return null
+        val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+        drawable.setBounds(0, 0, bitmap.width, bitmap.height)
+        drawable.draw(Canvas(bitmap))
+        return IconFactory.getInstance(this).fromBitmap(bitmap)
+    }
+
+    private fun addMarker(
+        latitude: Double,
+        longitude: Double,
+        titleRes: Int,
+        iconRes: Int = 0,
+    ): Marker? {
+        val loadedMap = map ?: return null
+        val options = MarkerOptions()
+            .position(LatLng(latitude, longitude))
+            .title(getString(titleRes))
+        if (iconRes != 0) {
+            bitmapIcon(iconRes)?.let { options.setIcon(it) }
+        }
+        return loadedMap.addMarker(options)
     }
 
     private fun updateRouteButton() {
@@ -803,9 +818,10 @@ class MainActivity : Activity() {
         // (rotazione, restore di MapView) vanno persi, quindi li riaggiungo qui.
         currentRoute?.let { renderRoute(it.toGeoJson()) }
         updateEndpointMarkers()
-        // i layer del segnalino vivono nel runtime: col reload dello stile vanno rimessi
-        locationComponentReady = false
-        activateLocationComponent(loadedMap)
+        // le annotation del segnalino di posizione spariscono col reload dello stile:
+        // senza questo reset currentLocationMarker continuerebbe a puntare a un Marker
+        // morto e il fix qui sotto non ricreerebbe nulla.
+        currentLocationMarker = null
         lastUserFix?.let { updatePositionMarker(it) }
         if (!userLocated) {
             locateUserOnStartup()
@@ -1003,9 +1019,10 @@ class MainActivity : Activity() {
     }
 
     private companion object {
-        // OpenFreeMap: gratuito, senza chiave API e molto piu' leggero di MapTiler
-        // Streets (55 layer / 25 KB contro 160 layer / 167 KB).
-        const val STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
+        // OpenFreeMap: gratuito e senza chiave API. Liberty e' il classico stile OSM
+        // colorato (verde parchi, azzurro acqua); 111 layer / 43 KB contro i
+        // 160 layer / 167 KB di MapTiler Streets.
+        const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
         const val USER_AGENT = "Mapsicle/0.1 (Android; com.padelle.mapsicle)"
         const val LOCATION_REQUEST_CODE = 1001
         const val MIN_QUERY_LENGTH = 3
