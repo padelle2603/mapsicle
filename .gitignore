@@ -10,11 +10,27 @@ pc-test.local.js
 *.jks
 *.keystore
 keystore.properties
+keystore/
+*.p12
+*.pem
+.env
 
 # Prototipo browser, tenuto fuori dal repo
 pc-test.html
+
+# Binari e release locali
+*.apk
+*.aab
+
+# Log e crash JVM
+*.log
+*.hprof
+hs_err_pid*
 
 # IDE
 .idea/
 *.iml
 .DS_Store
+Thumbs.db
+desktop.ini
+*~
