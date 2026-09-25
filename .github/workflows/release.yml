@@ -28,7 +28,18 @@ jobs:
         run: mkdir -p keystore && echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/mapsicle.jks
 
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease -PversionName="${GITHUB_REF_NAME#v}"
+        run: |
+          # versionCode derivato dal tag (0.4.0 -> 1004) cosi' cresce da sola a ogni
+          # release: installare sopra una versione precedente non viene rifiutato.
+          version="${GITHUB_REF_NAME#v}"
+          major="${version%%.*}"
+          minor_and_rest="${version#*.}"
+          minor="${minor_and_rest%%.*}"
+          version_code=$(( 1000 * (major + 1) + minor ))
+          echo "versionName=${version} versionCode=${version_code}"
+          ./gradlew :app:assembleRelease \
+            -PversionName="$version" \
+            -PversionCode="$version_code"
         env:
           KEYSTORE_PATH: keystore/mapsicle.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}

@@ -2,7 +2,7 @@
 
 A localized, offline-friendly OpenStreetMap viewer for Android, built with
 [MapLibre Native](https://maplibre.org/maplibre-native/) and
-[OSRM](https://project-osrm.org/) for routing.
+[BRouter](https://brouter.de/brouter-web/) for routing.
 
 Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK 36
 
@@ -10,13 +10,19 @@ Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK
 
 - **Map**: MapLibre vector map, defaults to MapTiler Streets with an
   OpenFreeMap Liberty fallback when no key is configured.
-- **Search**: geocoding via Photon, with debounce and request throttling.
+- **Search**: geocoding via Photon, debounced and served from a small thread
+  pool with an on-disk HTTP cache.
 - **Routing**: turn-by-turn guidance with distance, duration and maneuver
-  instructions computed from OSRM.
+  instructions computed from BRouter.
 - **Localization**: full Italian and English support for the UI, map labels,
   search results and turn instructions. Follows the system locale.
-- **Guidance**: continuous location updates with a recentered "my location"
-  button and an overview button.
+- **Position**: the position marker follows you continuously while the app is
+  in the foreground. The camera locks onto you during guidance and releases as
+  soon as you touch the map; the "my location" button re-arms it.
+- **Startup geolocation**: if location permission is already granted, the app
+  opens centered on where you are. It never prompts for permission on launch.
+  It first paints the last fix the system already knows, so the map moves
+  immediately, then refines on the live fix.
 - **Dark mode**: follows the system theme.
 
 ## Building locally
@@ -63,7 +69,7 @@ KEY_PASSWORD=... \
 Version can be overridden per build:
 
 ```bash
-./gradlew :app:assembleRelease -PversionCode=3 -PversionName=0.3.0
+./gradlew :app:assembleRelease -PversionCode=1004 -PversionName=0.4.0
 ```
 
 ## Tests
@@ -72,7 +78,7 @@ Version can be overridden per build:
 ./gradlew :app:testDebugUnitTest
 ```
 
-18 unit tests covering geoprojection and distance math, route parsing,
+19 unit tests covering geoprojection and distance math, route parsing,
 locale resolution, search term localization and style localization.
 
 ## Releases
@@ -81,9 +87,13 @@ Pushing a `v*` tag builds a signed APK with GitHub Actions and publishes it as
 a release asset:
 
 ```bash
-git tag -a v0.2.0 -m "Mapsicle v0.2.0"
-git push origin v0.2.0
+git tag -a v0.4.0 -m "Mapsicle v0.4.0"
+git push origin v0.4.0
 ```
+
+`versionName` comes from the tag and `versionCode` is derived from it
+(`0.4.0` → `1004`), so it always increases and an install over a previous
+release is accepted.
 
 See `.github/workflows/release.yml`. The required repository secrets are
 `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` and
@@ -109,10 +119,10 @@ window.MAPTILER_API_KEY = "your-maptiler-key";
 app/src/main/java/com/padelle/mapsicle/
   MainActivity.kt      UI wiring, map, routing, guidance, permissions
   Geo.kt               projection, distance and bearing math
-  Routing.kt           OSRM parsing and instructions
+  Routing.kt           BRouter parsing and instructions
   Search.kt            Photon geocoding
-  Suggestions.kt       debounce/throttle controller
-  SingleLocation.kt    one-shot position fix with timeout
+  Suggestions.kt       debounce controller
+  SingleLocation.kt    one-shot position fix, cached-first, with timeout
   Language.kt          locale resolution
   StyleLanguage.kt     map style localization
 ```

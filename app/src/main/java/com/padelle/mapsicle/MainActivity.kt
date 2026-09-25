@@ -88,6 +88,11 @@ class MainActivity : Activity() {
     private var cameraFollow = false
     private var pendingPermissionAction = PermissionAction.NONE
 
+    // Ultimo fix ricevuto: serve per ricreare il segnalino quando lo stile viene
+    // ricaricato e per decidere dove mettere la camera al primo avvio.
+    private var lastUserFix: Location? = null
+    private var userLocated = false
+
     private val appLanguage = resolveAppLanguage(Locale.getDefault())
     private val displayLocale = appLocale(appLanguage)
 
@@ -156,8 +161,14 @@ class MainActivity : Activity() {
         binding.stopNavigationButton.setOnClickListener { closeGuidance() }
         binding.startGpsButton.setOnClickListener { requestLocation() }
         binding.locationButton.setOnClickListener {
-            cameraFollow = true
-            requestLocation()
+            // il pulsante in basso a destra centra e basta: non deve sovrascrivere
+            // il campo partenza, altrimenti sposta quello che avevi digitato.
+            if (!hasFineLocation() && !hasCoarseLocation()) {
+                pendingPermissionAction = PermissionAction.CENTER_ON_USER
+                requestLocationPermissions()
+            } else {
+                recenterOnUser()
+            }
         }
         setPanelCollapsed(panelCollapsed)
         if (BuildConfig.MAPTILER_API_KEY.isBlank()) {
@@ -612,6 +623,8 @@ class MainActivity : Activity() {
      * a ogni fix.
      */
     private fun updatePositionMarker(location: Location) {
+        lastUserFix = location
+        userLocated = true
         val position = LatLng(location.latitude, location.longitude)
         val marker = currentLocationMarker
         if (marker == null) {
@@ -741,14 +754,26 @@ class MainActivity : Activity() {
     }
 
     private fun onMapStyleLoaded(loadedMap: MapLibreMap) {
-        loadedMap.cameraPosition = CameraPosition.Builder()
-            .target(LatLng(42.5, 12.5))
-            .zoom(5.0)
-            .build()
+        // Ricaricare lo stile non deve ripiombrare la camera sull'Italia se l'utente si
+        // e' gia' posizionato: si applica il default solo al primo caricamento.
+        if (userLocated) {
+            lastUserFix?.let { centerOnUser(it, animate = false) }
+        } else {
+            loadedMap.cameraPosition = CameraPosition.Builder()
+                .target(LatLng(DEFAULT_TARGET_LAT, DEFAULT_TARGET_LON))
+                .zoom(DEFAULT_ZOOM)
+                .build()
+        }
         // Source e layer della rotta vivono solo nel runtime: se lo stile viene ricreato
         // (rotazione, restore di MapView) vanno persi, quindi li riaggiungo qui.
         currentRoute?.let { renderRoute(it.toGeoJson()) }
         updateEndpointMarkers()
+        // le annotation del segnalino di posizione spariscono col reload dello stile
+        currentLocationMarker = null
+        lastUserFix?.let { updatePositionMarker(it) }
+        if (!userLocated) {
+            locateUserOnStartup()
+        }
     }
 
     private fun mapStyleUrl(): String {
@@ -771,6 +796,60 @@ class MainActivity : Activity() {
                 error("HTTP ${response.code}")
             }
             return response.body?.string() ?: error("Empty response body")
+        }
+    }
+
+    /**
+     * Apre l'app gia' centrata su dove sei, senza chiedere nulla: agisce solo se il
+     * permesso e' gia' stato concesso. Prima mostra subito l'ultima posizione nota dal
+     * sistema (istantanea) e poi si affina con il fix live appena arriva, cosi' la camera
+     * si ferma subito sulla zona giusta invece di aspettare il fix GPS.
+     */
+    private fun locateUserOnStartup() {
+        if (!hasFineLocation() && !hasCoarseLocation()) {
+            return
+        }
+        singleLocation.lastKnown()?.let { cached ->
+            centerOnUser(cached, animate = false)
+        }
+        singleLocation.request { fresh ->
+            if (isFinishing || isDestroyed || fresh == null) {
+                return@request
+            }
+            centerOnUser(fresh, animate = true)
+        }
+    }
+
+    private fun recenterOnUser() {
+        setRouteStatus(getString(R.string.location_searching))
+        cameraFollow = true
+        val cached = singleLocation.lastKnown()
+        cached?.let { centerOnUser(it, animate = false) }
+        singleLocation.request { fresh ->
+            if (isFinishing || isDestroyed) {
+                return@request
+            }
+            if (fresh == null) {
+                if (cached == null) {
+                    setRouteStatus(getString(R.string.location_unavailable))
+                }
+                return@request
+            }
+            centerOnUser(fresh, animate = true)
+            setRouteStatus(getString(R.string.location_found))
+        }
+    }
+
+    private fun centerOnUser(location: Location, animate: Boolean) {
+        updatePositionMarker(location)
+        val target = CameraPosition.Builder()
+            .target(LatLng(location.latitude, location.longitude))
+            .zoom(STARTUP_ZOOM)
+            .build()
+        if (animate) {
+            map?.animateCamera(CameraUpdateFactory.newCameraPosition(target), CAMERA_ANIMATION_MS)
+        } else {
+            map?.cameraPosition = target
         }
     }
 
@@ -814,6 +893,11 @@ class MainActivity : Activity() {
         if (requestCode != LOCATION_REQUEST_CODE) {
             return
         }
+        if (hasFineLocation() || hasCoarseLocation()) {
+            // onResume e' gia' passato prima del dialog: senza questo gli update non
+            // partono fino a quando l'app non torna in primo piano.
+            startLocationUpdates()
+        }
         when (pendingPermissionAction) {
             PermissionAction.ACCEPT_ROUTE -> {
                 pendingPermissionAction = PermissionAction.NONE
@@ -829,6 +913,15 @@ class MainActivity : Activity() {
                 if (hasFineLocation() || hasCoarseLocation()) {
                     setRouteStatus(getString(R.string.location_searching))
                     requestCurrentLocation()
+                } else {
+                    setRouteStatus(getString(R.string.location_permission_denied))
+                }
+            }
+
+            PermissionAction.CENTER_ON_USER -> {
+                pendingPermissionAction = PermissionAction.NONE
+                if (hasFineLocation() || hasCoarseLocation()) {
+                    recenterOnUser()
                 } else {
                     setRouteStatus(getString(R.string.location_permission_denied))
                 }
@@ -878,6 +971,7 @@ class MainActivity : Activity() {
         NONE,
         ACCEPT_ROUTE,
         SET_START_LOCATION,
+        CENTER_ON_USER,
     }
 
     private companion object {
@@ -892,6 +986,12 @@ class MainActivity : Activity() {
         const val GUIDANCE_ZOOM = 16.0
         const val MIN_FOLLOW_ZOOM = 12.0
         const val MAX_FOLLOW_ZOOM = 18.0
+        // Zoom per "centrami qui": abbastanza vicino da orientarsi, non cosi' vicino
+        // da perdere il contesto.
+        const val STARTUP_ZOOM = 15.0
+        const val DEFAULT_TARGET_LAT = 42.5
+        const val DEFAULT_TARGET_LON = 12.5
+        const val DEFAULT_ZOOM = 5.0
         const val NETWORK_TIMEOUT_SECONDS = 10L
         const val ROUTE_SOURCE_ID = "route"
         const val ROUTE_LAYER_ID = "route-line"

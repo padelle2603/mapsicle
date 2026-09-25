@@ -20,14 +20,46 @@ internal class SingleLocation(
     private var legacyListener: LocationListener? = null
     private var timeout: Runnable? = null
 
-    fun lastKnown(): Location? {
+    /**
+     * Ultima posizione gia' nota dal sistema, senza bloccare l'UI.
+     *
+     * Android mantiene l'ultimo fix in memoria anche a lungo dopo che il GPS si e' spento:
+     * restituirlo subito e' quello che rende l'apertura dell'app immediata invece che
+     * una schermata di attesa. I filtri buttano via i fix troppo vecchi o troppo imprecisi
+     * (una posizione di ieri non serve a nulla, ma una di 20 minuti fa va benissimo).
+     */
+    fun lastKnown(
+        maxAgeMs: Long = LAST_KNOWN_MAX_AGE_MS,
+        maxAccuracyMeters: Float = LAST_KNOWN_MAX_ACCURACY_METERS,
+    ): Location? {
+        val now = System.currentTimeMillis()
         return try {
             locationManager.getProviders(true)
                 .mapNotNull { provider -> locationManager.getLastKnownLocation(provider) }
+                .filter { location ->
+                    val age = now - location.time
+                    age in 0..maxAgeMs &&
+                        (location.accuracy <= 0f || location.accuracy <= maxAccuracyMeters)
+                }
                 .maxByOrNull(Location::getTime)
         } catch (_: SecurityException) {
             null
         }
+    }
+
+    /**
+     * Fused quando c'': stima la posizione combinando GPS e rete, quindi e' veloce
+     * e precisa allo stesso tempo. La rete e' il secondo preferito perche' risponde in
+     * 1-2 secondi mentre il GPS a freddo puo' mettercene 30. Il GPS arriva per ultimo,
+     * solo quando non c'e' altro.
+     */
+    private fun preferredProvider(): String? {
+        val enabled = try {
+            locationManager.getProviders(true).toList()
+        } catch (_: SecurityException) {
+            return null
+        }
+        return PROVIDER_PREFERENCE.firstOrNull { it in enabled } ?: enabled.firstOrNull()
     }
 
     fun request(callback: (Location?) -> Unit) {
@@ -43,13 +75,7 @@ internal class SingleLocation(
             callback(location)
         }
 
-        val provider = try {
-            locationManager.getProviders(true)
-                .firstOrNull { it == LocationManager.GPS_PROVIDER }
-                ?: locationManager.getProviders(true).firstOrNull()
-        } catch (_: SecurityException) {
-            null
-        }
+        val provider = preferredProvider()
         if (provider == null) {
             complete(null)
             return
@@ -117,6 +143,15 @@ internal class SingleLocation(
     }
 
     private companion object {
-        const val LOCATION_TIMEOUT_MS = 12_000L
+        // Con fused/network il fix arriva in 1-2s: oltre i 4s meglio l'ultimo noto
+        // che una schermata di attesa.
+        const val LOCATION_TIMEOUT_MS = 4_000L
+        const val LAST_KNOWN_MAX_AGE_MS = 30L * 60L * 1000L
+        const val LAST_KNOWN_MAX_ACCURACY_METERS = 1_000f
+        val PROVIDER_PREFERENCE = listOf(
+            LocationManager.FUSED_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.GPS_PROVIDER,
+        )
     }
 }
