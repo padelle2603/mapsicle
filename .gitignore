@@ -11,6 +11,9 @@ pc-test.local.js
 *.keystore
 keystore.properties
 
+# Prototipo browser, tenuto fuori dal repo
+pc-test.html
+
 # IDE
 .idea/
 *.iml

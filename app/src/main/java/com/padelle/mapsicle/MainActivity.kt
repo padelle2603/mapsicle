@@ -1042,7 +1042,7 @@ class MainActivity : Activity() {
         // colorato (verde parchi, azzurro acqua); 111 layer / 43 KB contro i
         // 160 layer / 167 KB di MapTiler Streets.
         const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
-        const val USER_AGENT = "Mapsicle/0.1 (Android; com.padelle.mapsicle)"
+        val USER_AGENT = "Mapsicle/${BuildConfig.VERSION_NAME} (Android; ${BuildConfig.APPLICATION_ID})"
         const val LOCATION_REQUEST_CODE = 1001
         const val MIN_QUERY_LENGTH = 3
         const val LOCATION_UPDATE_INTERVAL_MS = 1_000L

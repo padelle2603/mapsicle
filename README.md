@@ -6,6 +6,9 @@ A localized, offline-friendly OpenStreetMap viewer for Android, built with
 
 Application ID: `com.padelle.mapsicle` · Min SDK 23 (Android 6.0) · Target SDK 36
 
+License: [MIT](LICENSE) · [Manifesto](MANIFEST.md) · [Legal](LEGAL.md) ·
+[Privacy](PRIVACY.md)
+
 ## Features
 
 - **Map**: MapLibre vector map on OpenFreeMap Liberty. No API key, no account:
@@ -73,7 +76,7 @@ KEY_PASSWORD=... \
 Version can be overridden per build:
 
 ```bash
-./gradlew :app:assembleRelease -PversionCode=6000 -PversionName=0.6.0
+./gradlew :app:assembleRelease -PversionCode=1000000 -PversionName=1.0.0
 ```
 
 ## Tests
@@ -82,24 +85,27 @@ Version can be overridden per build:
 ./gradlew :app:testDebugUnitTest
 ```
 
-20 unit tests covering geoprojection and distance math, route parsing,
+25 unit tests covering geoprojection and distance math, route parsing,
 locale resolution, search term localization and style localization.
 
 ## Releases
 
 Pushing a `v*` tag builds a signed APK with GitHub Actions and publishes it as
-a release asset:
+a release asset named `mapsicle-v<tag>.apk`:
 
 ```bash
-git tag -a v0.6.0 -m "Mapsicle v0.6.0"
-git push origin v0.6.0
+git tag -a v1.0.0 -m "Mapsicle v1.0.0"
+git push origin v1.0.0
 ```
 
 `versionName` comes from the tag and `versionCode` is derived from all three
-of its components as `major*1000000 + minor*1000 + patch` (`0.6.0` → `6000`).
+of its components as `major*1000000 + minor*1000 + patch` (`1.0.0` → `1000000`).
 The build fails if that number would not be higher than the previous
 release's, because Android rejects a non-increasing `versionCode` as a
 downgrade and a published release cannot be taken back.
+
+Unit tests and lint run as a gate before the build, so a release is never
+published from a red build.
 
 See `.github/workflows/release.yml`. The required repository secrets are
 `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`.
@@ -107,12 +113,6 @@ See `.github/workflows/release.yml`. The required repository secrets are
 Because every release is signed with the same key and uses the same
 application ID, each new version replaces the installed one in place — no
 uninstall, and app data is preserved.
-
-## Web prototype
-
-`pc-test.html` is a standalone browser prototype of the same ideas. It reads its
-MapTiler key from a local file that is intentionally **not** tracked. The
-Android app no longer needs a key at all.
 
 ## Project structure
 
@@ -135,3 +135,12 @@ contributors. Map data is available under the
 [ODbL](https://opendatacommons.org/licenses/odbl/). The basemap is provided by
 [OpenFreeMap](https://openfreemap.org/).
 Please keep the attribution visible if you redistribute this app.
+The full list of bundled third-party components and their licenses is in
+[LEGAL.md](LEGAL.md).
+
+## Documents
+
+- [MANIFEST.md](MANIFEST.md) — why Mapsicle exists, its mission and principles
+- [PRIVACY.md](PRIVACY.md) — what leaves your device, and what stays on it
+- [LEGAL.md](LEGAL.md) — license, third-party components, attributions
+- [LICENSE](LICENSE) — MIT
