@@ -19,9 +19,10 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accetta licenze Android SDK
+        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: Recupera keystore
         run: mkdir -p keystore && echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/mapsicle.jks
