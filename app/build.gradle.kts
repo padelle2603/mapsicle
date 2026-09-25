@@ -2,10 +2,6 @@ plugins {
     id("com.android.application")
 }
 
-val maptilerApiKey = System.getenv("MAPTILER_API_KEY").orEmpty()
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
-
 val keystorePath = System.getenv("KEYSTORE_PATH")
 
 val releaseVersionCode = (findProperty("versionCode") as String?)?.toInt() ?: 2
@@ -24,7 +20,6 @@ android {
         applicationId = "com.padelle.mapsicle"
         minSdk = 23
         targetSdk = 36
-        buildConfigField("String", "MAPTILER_API_KEY", "\"$maptilerApiKey\"")
         versionCode = releaseVersionCode
         versionName = releaseVersionName
     }

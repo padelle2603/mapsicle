@@ -8,6 +8,7 @@
     <color name="text_secondary">#FFB8BBC0</color>
     <color name="text_link">#FF8AB4F8</color>
     <color name="icon_tint">#FFFFFFFF</color>
+    <color name="route_line">#64B5F6</color>
     <color name="status_bar">#FF0B0B0C</color>
     <color name="navigation_bar">#FF0B0B0C</color>
 </resources>

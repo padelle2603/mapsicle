@@ -37,7 +37,6 @@
     <string name="location_permission_denied">Posizione non autorizzata</string>
     <string name="location_unavailable">Posizione non disponibile</string>
     <string name="location_found">Posizione GPS trovata</string>
-    <string name="map_key_missing">Chiave MapTiler mancante: uso la mappa fallback. Imposta MAPTILER_API_KEY</string>
     <string name="nav_continue">Continua</string>
     <string name="nav_turn_left">Svolta a sinistra</string>
     <string name="nav_turn_slight_left">Svolta leggermente a sinistra</string>

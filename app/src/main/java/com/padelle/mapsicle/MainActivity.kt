@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -29,6 +28,9 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.modes.CameraMode
+import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -76,7 +78,6 @@ class MainActivity : Activity() {
     private var destinationPlace: SearchPlace? = null
     private var startMarker: Marker? = null
     private var destinationMarker: Marker? = null
-    private var currentLocationMarker: Marker? = null
     private var currentRoute: RouteResult? = null
     private var latestSuggestions: List<SearchPlace> = emptyList()
     private var routeInFlight = false
@@ -92,6 +93,7 @@ class MainActivity : Activity() {
     // ricaricato e per decidere dove mettere la camera al primo avvio.
     private var lastUserFix: Location? = null
     private var userLocated = false
+    private var locationComponentReady = false
 
     private val appLanguage = resolveAppLanguage(Locale.getDefault())
     private val displayLocale = appLocale(appLanguage)
@@ -122,7 +124,13 @@ class MainActivity : Activity() {
         setContentView(binding.root)
 
         suggestions = Suggestions(mainHandler, executor, appLanguage) { url -> httpGet(url) }
-        suggestions.onSearching = { setSuggestionStatus(getString(R.string.searching_suggestions)) }
+        suggestions.onSearching = {
+            // Solo se non c'e' gia' qualcosa da mostrare: altrimenti il testo
+            // "ricerca in corso" lampeggia a ogni tasto premuto.
+            if (latestSuggestions.isEmpty()) {
+                setSuggestionStatus(getString(R.string.searching_suggestions))
+            }
+        }
         suggestions.onResults = { results ->
             latestSuggestions = results
             showSuggestions(results)
@@ -171,9 +179,6 @@ class MainActivity : Activity() {
             }
         }
         setPanelCollapsed(panelCollapsed)
-        if (BuildConfig.MAPTILER_API_KEY.isBlank()) {
-            setRouteStatus(getString(R.string.map_key_missing))
-        }
     }
 
     override fun onStart() {
@@ -600,10 +605,15 @@ class MainActivity : Activity() {
         } catch (_: SecurityException) {
             return emptyList()
         }
-        val preferred = enabled.filter { provider ->
-            provider == LocationManager.FUSED_PROVIDER || provider == LocationManager.GPS_PROVIDER
+        // Un solo provider: fused e GPS insieme arrivano entrambi sullo stesso listener
+        // (fino a 2 fix/s), quindi tutto il lavoro per fix veniva fatto il doppio.
+        val fused = LocationManager.FUSED_PROVIDER
+        val gps = LocationManager.GPS_PROVIDER
+        return when {
+            fused in enabled -> listOf(fused)
+            gps in enabled -> listOf(gps)
+            else -> enabled
         }
-        return preferred.ifEmpty { enabled }
     }
 
     private fun stopLocationUpdates() {
@@ -625,17 +635,32 @@ class MainActivity : Activity() {
     private fun updatePositionMarker(location: Location) {
         lastUserFix = location
         userLocated = true
-        val position = LatLng(location.latitude, location.longitude)
-        val marker = currentLocationMarker
-        if (marker == null) {
-            currentLocationMarker = addMarker(
-                location.latitude,
-                location.longitude,
-                R.string.my_location,
-            )
-        } else {
-            marker.position = position
+        // Il segnalino lo disegna il LocationComponent; forceLocationUpdate e' il nostro
+        // modo di passargli i fix, cosi' restano SingleLocation (cache) e i permessi.
+        if (locationComponentReady) {
+            map?.locationComponent?.forceLocationUpdate(location)
         }
+    }
+
+    /**
+     * LocationComponent di MapLibre: da fermo un punto con alone pulsante e cerchio di
+     * precisione, in movimento un puck col cono di direzione. Niente da configurare,
+     * usa gia' gli asset e il tema di MapLibre. Va riattivato a ogni reload dello stile
+     * perche' i suoi layer vivono nel runtime.
+     */
+    private fun activateLocationComponent(loadedMap: MapLibreMap) {
+        val style = loadedMap.style ?: return
+        val component = loadedMap.locationComponent
+        component.activateLocationComponent(
+            LocationComponentActivationOptions.Builder(this, style)
+                .useDefaultLocationEngine(false)
+                .useSpecializedLocationLayer(true)
+                .build()
+        )
+        // La camera la guidiamo gia' a mano con cameraFollow: qui solo il segnalino.
+        component.setCameraMode(CameraMode.NONE_GPS)
+        component.setRenderMode(RenderMode.COMPASS)
+        locationComponentReady = true
     }
 
     private fun updateGuidance(location: Location) {
@@ -652,8 +677,7 @@ class MainActivity : Activity() {
 
         val nextInstruction = progress.nextStep?.let { getString(it.instructionRes()) }
             ?: getString(R.string.navigation_continue)
-        binding.navigationInstruction.text = nextInstruction
-        binding.navigationDistance.text = if (progress.nextStep == null) {
+        val distanceText = if (progress.nextStep == null) {
             getString(R.string.navigation_arrival_distance, formatDistance(progress.remainingMeters, displayLocale))
         } else {
             getString(
@@ -661,7 +685,18 @@ class MainActivity : Activity() {
                 formatDistance(progress.distanceToNextManeuverMeters, displayLocale),
             )
         }
-        binding.navigationProgress.text = getString(R.string.navigation_progress, progress.percent)
+        val progressText = getString(R.string.navigation_progress, progress.percent)
+        // setText rilassa e rimisura anche quando la stringa non e' cambiata: 3 di quei
+        // check a ogni fix, 1-2 volte al secondo, costano piu' del calcolo del progresso.
+        if (binding.navigationInstruction.text != nextInstruction) {
+            binding.navigationInstruction.text = nextInstruction
+        }
+        if (binding.navigationDistance.text != distanceText) {
+            binding.navigationDistance.text = distanceText
+        }
+        if (binding.navigationProgress.text != progressText) {
+            binding.navigationProgress.text = progressText
+        }
 
         val target = progress.nextStep?.let { step ->
             route.coordinates.getOrNull(step.geometryIndex)
@@ -730,7 +765,7 @@ class MainActivity : Activity() {
     }
 
     private fun loadMapStyle(loadedMap: MapLibreMap) {
-        val styleUrl = mapStyleUrl()
+        val styleUrl = STYLE_URL
         executor.execute {
             val localizedStyle = runCatching {
                 Style.Builder()
@@ -768,22 +803,15 @@ class MainActivity : Activity() {
         // (rotazione, restore di MapView) vanno persi, quindi li riaggiungo qui.
         currentRoute?.let { renderRoute(it.toGeoJson()) }
         updateEndpointMarkers()
-        // le annotation del segnalino di posizione spariscono col reload dello stile
-        currentLocationMarker = null
+        // i layer del segnalino vivono nel runtime: col reload dello stile vanno rimessi
+        locationComponentReady = false
+        activateLocationComponent(loadedMap)
         lastUserFix?.let { updatePositionMarker(it) }
         if (!userLocated) {
             locateUserOnStartup()
         }
     }
 
-    private fun mapStyleUrl(): String {
-        val key = BuildConfig.MAPTILER_API_KEY
-        return if (key.isBlank()) {
-            FALLBACK_STYLE_URL
-        } else {
-            "$MAPTILER_STYLE_URL?key=${Uri.encode(key)}"
-        }
-    }
 
     private fun httpGet(url: String): String {
         val request = Request.Builder()
@@ -975,8 +1003,9 @@ class MainActivity : Activity() {
     }
 
     private companion object {
-        const val MAPTILER_STYLE_URL = "https://api.maptiler.com/maps/streets-v4/style.json"
-        const val FALLBACK_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+        // OpenFreeMap: gratuito, senza chiave API e molto piu' leggero di MapTiler
+        // Streets (55 layer / 25 KB contro 160 layer / 167 KB).
+        const val STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
         const val USER_AGENT = "Mapsicle/0.1 (Android; com.padelle.mapsicle)"
         const val LOCATION_REQUEST_CODE = 1001
         const val MIN_QUERY_LENGTH = 3
@@ -996,7 +1025,8 @@ class MainActivity : Activity() {
         const val ROUTE_SOURCE_ID = "route"
         const val ROUTE_LAYER_ID = "route-line"
         const val EMPTY_ROUTE_GEOJSON = "{\"type\":\"FeatureCollection\",\"features\":[]}"
-        const val HTTP_CACHE_BYTES = 20L * 1024 * 1024
+        // Stile, tile, sprite, font e ricerche condividono questa cache: 20 MB finivano subito.
+        const val HTTP_CACHE_BYTES = 128L * 1024 * 1024
         const val STATE_PANEL_COLLAPSED = "panel_collapsed"
     }
 }

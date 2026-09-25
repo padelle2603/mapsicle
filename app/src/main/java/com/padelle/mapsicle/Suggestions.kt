@@ -63,13 +63,15 @@ internal class Suggestions(
             }
             handler.post {
                 inFlight = false
+                // Mostra quello che e' arrivato invece di scartarlo: Photon risponde in
+                // ~1.6s, buttare i risultati e rifare la richiesta raddoppia l'attesa
+                // percepita. Poi si affina con la query piu' recente.
+                result.onSuccess { onResults?.invoke(it) }
+                    .onFailure { if (gen == generation) onError?.invoke() }
                 if (gen != generation || droppedWhileBusy) {
                     droppedWhileBusy = false
                     latestQuery?.let { request(it, immediate = true) }
-                    return@post
                 }
-                result.onSuccess { onResults?.invoke(it) }
-                    .onFailure { onError?.invoke() }
             }
         }
     }
@@ -80,7 +82,7 @@ internal class Suggestions(
     }
 
     private companion object {
-        const val DEBOUNCE_MS = 250L
+        const val DEBOUNCE_MS = 180L
         const val MIN_QUERY_LENGTH = 3
     }
 }

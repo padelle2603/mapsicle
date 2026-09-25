@@ -99,6 +99,31 @@ class RoutingTest {
     }
 
     @Test
+    fun cumulativeDistancesAreStableAcrossRepeatedCalls() {
+        // cumulativeMeters e' memoizzato su una rotta immutabile: se lo ricalcolassi o lo
+        // corrompessi, il progresso cambierebbe tra una chiamata e l'altra.
+        val route = RouteResult(
+            coordinates = listOf(
+                RoutePoint(0.0, 0.0),
+                RoutePoint(0.001, 0.0),
+                RoutePoint(0.002, 0.0),
+                RoutePoint(0.002, 0.001),
+            ),
+            distanceMeters = 335.0,
+            durationSeconds = 120.0,
+        )
+
+        assertEquals(route.coordinates.size, route.cumulativeMeters.size)
+        assertEquals(0.0, route.cumulativeMeters.first(), 0.0)
+
+        val first = calculateRouteProgress(route, latitude = 0.0, longitude = 0.001)
+        val second = calculateRouteProgress(route, latitude = 0.0, longitude = 0.001)
+        assertEquals(first.traveledMeters, second.traveledMeters, 0.0)
+        assertEquals(first.percent, second.percent)
+        assertTrue(first.traveledMeters > 0.0)
+    }
+
+    @Test
     fun formatsRouteMetrics() {
         assertEquals("1,3 km", formatDistance(1250.0, Locale.ITALY))
         assertEquals("1.3 km", formatDistance(1250.0, Locale.US))

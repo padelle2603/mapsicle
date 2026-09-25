@@ -37,7 +37,6 @@
     <string name="location_permission_denied">Location permission denied</string>
     <string name="location_unavailable">Location unavailable</string>
     <string name="location_found">GPS location found</string>
-    <string name="map_key_missing">MapTiler key missing: using fallback map. Set MAPTILER_API_KEY</string>
     <string name="nav_continue">Continue</string>
     <string name="nav_turn_left">Turn left</string>
     <string name="nav_turn_slight_left">Slight left</string>

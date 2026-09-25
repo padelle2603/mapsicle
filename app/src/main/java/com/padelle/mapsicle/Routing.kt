@@ -4,6 +4,7 @@ import org.json.JSONObject
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -33,7 +34,18 @@ data class RouteResult(
     val distanceMeters: Double,
     val durationSeconds: Double,
     val steps: List<RouteStep> = emptyList(),
-)
+) {
+    // Le distanze cumulate dipendono solo dalla rotta, ma venivano ricalcolate a ogni
+    // fix GPS: 461 segmenti di trigonometria e ~30 KB di allocazioni, 1-2 volte al secondo.
+    internal val cumulativeMeters: DoubleArray by lazy {
+        DoubleArray(coordinates.size).also { out ->
+            for (index in 1 until coordinates.size) {
+                out[index] = out[index - 1] +
+                    distanceMeters(coordinates[index - 1], coordinates[index])
+            }
+        }
+    }
+}
 
 data class RouteProgress(
     val nextStep: RouteStep?,
@@ -139,34 +151,32 @@ internal fun calculateRouteProgress(
         return RouteProgress(null, 0.0, 0.0, 0.0, 0, true)
     }
 
-    val referenceLatitude = latitude
-    val current = projectPoint(RoutePoint(longitude, latitude), referenceLatitude)
-    val cumulative = DoubleArray(route.coordinates.size)
-    for (index in 1 until route.coordinates.size) {
-        cumulative[index] = cumulative[index - 1] + distanceMeters(
-            route.coordinates[index - 1],
-            route.coordinates[index],
-        )
-    }
+    // Proiezione equirettangolare inline: projectPoint() allocava 2 oggetti per segmento,
+    // cioe' ~920 allocazioni a ogni fix. Stessa matematica, zero allocazioni.
+    val longitudeScale = METERS_PER_DEGREE_LAT * cos(Math.toRadians(latitude))
+    val currentX = longitude * longitudeScale
+    val currentY = latitude * METERS_PER_DEGREE_LAT
 
     var bestSegment = 0
     var bestRatio = 0.0
     var bestDistance = Double.MAX_VALUE
     for (index in 0 until route.coordinates.lastIndex) {
-        val start = projectPoint(route.coordinates[index], referenceLatitude)
-        val end = projectPoint(route.coordinates[index + 1], referenceLatitude)
-        val deltaX = end.x - start.x
-        val deltaY = end.y - start.y
+        val startPoint = route.coordinates[index]
+        val endPoint = route.coordinates[index + 1]
+        val startX = startPoint.longitude * longitudeScale
+        val startY = startPoint.latitude * METERS_PER_DEGREE_LAT
+        val deltaX = (endPoint.longitude - startPoint.longitude) * longitudeScale
+        val deltaY = (endPoint.latitude - startPoint.latitude) * METERS_PER_DEGREE_LAT
         val lengthSquared = deltaX * deltaX + deltaY * deltaY
         val ratio = if (lengthSquared == 0.0) {
             0.0
         } else {
-            (((current.x - start.x) * deltaX + (current.y - start.y) * deltaY) / lengthSquared)
+            (((currentX - startX) * deltaX + (currentY - startY) * deltaY) / lengthSquared)
                 .coerceIn(0.0, 1.0)
         }
-        val projectedX = start.x + deltaX * ratio
-        val projectedY = start.y + deltaY * ratio
-        val distance = hypot(current.x - projectedX, current.y - projectedY)
+        val projectedX = startX + deltaX * ratio
+        val projectedY = startY + deltaY * ratio
+        val distance = hypot(currentX - projectedX, currentY - projectedY)
         if (distance < bestDistance) {
             bestDistance = distance
             bestSegment = index
@@ -178,6 +188,7 @@ internal fun calculateRouteProgress(
         route.coordinates[bestSegment],
         route.coordinates[bestSegment + 1],
     )
+    val cumulative = route.cumulativeMeters
     val geometryDistance = cumulative.last()
     val traveled = (cumulative[bestSegment] + segmentLength * bestRatio).coerceAtLeast(0.0)
     val totalDistance = route.distanceMeters.coerceAtLeast(geometryDistance)

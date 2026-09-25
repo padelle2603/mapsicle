@@ -15,6 +15,9 @@ data class SearchPlace(
 
 internal fun buildSuggestionUrl(query: String, language: String): String {
     val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+    // Photon accetta solo default/de/en/fr: mandare lang=it risponde HTTP 400. Per
+    // l'italiano omettiamo lang e Photon restituisce i nomi nativi, che e' quello che
+    // serve. Non "correggere" questo in lang=it senza verifica.
     val languageParam = if (language.equals(ENGLISH_LANGUAGE, ignoreCase = true)) "&lang=en" else ""
     return "$PHOTON_ENDPOINT?q=$encodedQuery&limit=$RESULT_LIMIT$languageParam"
 }
