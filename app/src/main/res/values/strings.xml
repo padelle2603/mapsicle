@@ -58,6 +58,21 @@
     <string name="nav_exit_right">Take the right exit</string>
     <string name="nav_continue_path">Continue along the route</string>
     <string name="map_credit">© OpenStreetMap contributors · Licenses</string>
+    <string name="place_directions">Directions</string>
+    <string name="category_food">Food and drinks</string>
+    <string name="category_shop">Shops</string>
+    <string name="category_lodging">Accommodation</string>
+    <string name="category_bank">Bank</string>
+    <string name="category_pharmacy">Pharmacy</string>
+    <string name="category_health">Health</string>
+    <string name="category_culture">Museums and culture</string>
+    <string name="category_green">Parks and green</string>
+    <string name="category_sport">Sport</string>
+    <string name="category_service">Services</string>
+    <string name="category_school">Schools</string>
+    <string name="category_parking">Parking</string>
+    <string name="category_transport">Transport and fuel</string>
+    <string name="category_other">Place</string>
     <string name="about_title">About Mapsicle</string>
     <string name="about_close">Close</string>
 </resources>

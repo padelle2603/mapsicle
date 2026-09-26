@@ -14,6 +14,13 @@ License: [MIT](LICENSE) · [Manifesto](MANIFEST.md) · [Legal](LEGAL.md) ·
 - **Map**: MapLibre vector map on OpenFreeMap Liberty. No API key, no account:
   111 layers instead of the 160 of MapTiler Streets, and a 43 KB style instead
   of 167 KB, with the same colours (green parks, blue water, green woodland).
+- **Places on the map**: restaurants, shops, hotels, pharmacies, parks and 50 more
+  kinds of place are drawn straight from the tile that already renders the map,
+  with their real OpenMapTiles category icons: about 7000 of them per z14 tile
+  over Milan, no extra request and nothing new to cache. Icons from z16, names
+  from z17, and only named places worth going to: no rubbish bins, gates or
+  telephone poles. Tap one for its name, category and distance, then "Directions"
+  routes to it from where you are, unless you already typed a start.
 - **Search**: geocoding via Photon, debounced, served from a small thread pool
   with an on-disk HTTP cache. Results are shown as soon as they arrive and then
   refined, instead of being thrown away and re-fetched. Results are ranked
@@ -125,7 +132,7 @@ app/src/main/java/com/padelle/mapsicle/
   SingleLocation.kt    one-shot position fix, cached-first, with timeout
   Routing.kt           BRouter parsing, instructions, route progress
   Language.kt          locale resolution
-  StyleLanguage.kt     map style localization
+  MapStyle.kt           map style localization, places layers and categories
 ```
 
 ## Attribution

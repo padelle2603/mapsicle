@@ -58,6 +58,21 @@
     <string name="nav_exit_right">Esci a destra</string>
     <string name="nav_continue_path">Continua sul percorso</string>
     <string name="map_credit">© OpenStreetMap contributors · Licenze</string>
+    <string name="place_directions">Indicazioni</string>
+    <string name="category_food">Mangiare e bere</string>
+    <string name="category_shop">Negozi</string>
+    <string name="category_lodging">Dove dormire</string>
+    <string name="category_bank">Banca</string>
+    <string name="category_pharmacy">Farmacia</string>
+    <string name="category_health">Salute</string>
+    <string name="category_culture">Musei e cultura</string>
+    <string name="category_green">Parchi e verde</string>
+    <string name="category_sport">Sport</string>
+    <string name="category_service">Servizi</string>
+    <string name="category_school">Scuole</string>
+    <string name="category_parking">Parcheggi</string>
+    <string name="category_transport">Trasporti e carburante</string>
+    <string name="category_other">Luogo</string>
     <string name="about_title">Informazioni su Mapsicle</string>
     <string name="about_close">Chiudi</string>
 </resources>

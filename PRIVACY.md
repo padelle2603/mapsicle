@@ -63,7 +63,15 @@ away from you keeps working exactly the same.
 Without the location permission, **no coordinate of any kind is sent**: the app
 cannot centre itself on you and does not know where you are.
 
-### 2.3 Routing — `brouter.de`
+### 2.3 Places on the map
+
+The restaurants, shops, hotels, pharmacies and parks drawn on the map are read
+from the **vector tiles you are already downloading** to draw the basemap. Tapping
+one shows its name, its category and how far it is from you, all on your device:
+**no request, no identifier and no position is sent** when you tap a place. Asking
+for directions to it is a routing request, and follows the next section.
+
+### 2.4 Routing — `brouter.de`
 
 When you compute a route, the app sends to the public
 [BRouter](https://brouter.de/) service the **start and destination

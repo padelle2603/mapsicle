@@ -14,6 +14,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.RectF
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -28,6 +29,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
+import com.google.gson.JsonObject
 import com.padelle.mapsicle.databinding.ActivityMainBinding
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -49,6 +51,7 @@ import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Point
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executor
@@ -85,6 +88,8 @@ class MainActivity : Activity() {
 
     private var activeInput: EditText? = null
     private var startPlace: SearchPlace? = null
+    private var startAtUserPosition = false
+    private var pendingPlace: SearchPlace? = null
     private var destinationPlace: SearchPlace? = null
     private var startMarker: Marker? = null
     private var destinationMarker: Marker? = null
@@ -168,6 +173,7 @@ class MainActivity : Activity() {
         mapView.getMapAsync { loadedMap ->
             map = loadedMap
             loadedMap.uiSettings.isAttributionEnabled = true
+            loadedMap.addOnMapClickListener { latLng -> onMapClick(latLng) }
             loadMapStyle(loadedMap)
         }
 
@@ -355,19 +361,12 @@ class MainActivity : Activity() {
 
     private fun selectSuggestion(place: SearchPlace) {
         val field = activeInput ?: return
-        suppressTextChange = true
         if (field === binding.startInput) {
-            startPlace = place
-            binding.startInput.setText(place.displayName)
+            setStartPlace(place, fromUserPosition = false)
         } else {
-            destinationPlace = place
-            binding.destinationInput.setText(place.displayName)
+            setDestinationPlace(place)
         }
-        suppressTextChange = false
-        invalidateRoute()
         clearSuggestions()
-        updateRouteButton()
-        updateEndpointMarkers()
         field.clearFocus()
         map?.animateCamera(
             CameraUpdateFactory.newLatLngZoom(LatLng(place.latitude, place.longitude), 13.0),
@@ -790,9 +789,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun setStartPlace(place: SearchPlace) {
+    private fun setStartPlace(place: SearchPlace, fromUserPosition: Boolean) {
         invalidateRoute()
         startPlace = place
+        startAtUserPosition = fromUserPosition
         suppressTextChange = true
         binding.startInput.setText(place.displayName)
         suppressTextChange = false
@@ -801,12 +801,111 @@ class MainActivity : Activity() {
         updateHeaderSummary()
     }
 
+    private fun setDestinationPlace(place: SearchPlace) {
+        invalidateRoute()
+        destinationPlace = place
+        suppressTextChange = true
+        binding.destinationInput.setText(place.displayName)
+        suppressTextChange = false
+        updateRouteButton()
+        updateEndpointMarkers()
+    }
+
+    /**
+     * Toccando un POI si apre la scheda con il nome, la categoria e la distanza.
+     * La query e' un rettangolo di 16dp attorno al tocco invece del punto esatto: le icone
+     * del tile sono 11px e un tocco mirato col dito e' impossibile, quindi il bersaglio si
+     * allarga qui e non con un layer invisibile.
+     */
+    private fun onMapClick(latLng: LatLng): Boolean {
+        val loadedMap = map ?: return false
+        val screen = loadedMap.getProjection().toScreenLocation(latLng)
+        val reach = dp(POI_TOUCH_DP).toFloat()
+        val tapped = RectF(screen.x - reach, screen.y - reach, screen.x + reach, screen.y + reach)
+        val place = loadedMap
+            .queryRenderedFeatures(tapped, POI_ICON_LAYER, POI_LABEL_LAYER)
+            .mapNotNull { feature -> (feature.geometry() as? Point)?.let { feature to it } }
+            .minByOrNull { (_, point) ->
+                val east = point.longitude() - latLng.longitude
+                val north = point.latitude() - latLng.latitude
+                (east * east + north * north).toFloat()
+            }
+            ?: return false
+        val properties = place.first.properties() ?: return false
+        val name = properties.optLocalName(appLanguage) ?: return false
+        showPlaceSheet(
+            SearchPlace(name, place.second.latitude(), place.second.longitude()),
+            poiCategoryLabelRes(properties.get("class")?.asString.orEmpty()),
+        )
+        return true
+    }
+
+    private fun showPlaceSheet(place: SearchPlace, categoryRes: Int) {
+        val fix = lastUserFix
+        val category = getString(categoryRes)
+        val message = if (fix == null) {
+            category
+        } else {
+            // riuso il formato "%1$s · %2$s" del riepilogo rotta: e' lo stesso fatto
+            getString(
+                R.string.route_summary,
+                category,
+                formatDistance(
+                    distanceMeters(
+                        RoutePoint(place.longitude, place.latitude),
+                        RoutePoint(fix.longitude, fix.latitude),
+                    ),
+                    displayLocale,
+                ),
+            )
+        }
+        AlertDialog.Builder(this)
+            .setTitle(place.displayName)
+            .setMessage(message)
+            .setPositiveButton(R.string.place_directions) { _, _ -> routeToPlace(place) }
+            .setNegativeButton(R.string.about_close, null)
+            .show()
+    }
+
+    /**
+     * "Indicazioni" su un POI: parte dalla mia posizione se il campo partenza e' vuoto o
+     * contiene gia' la mia posizione, altrimenti rispetta la partenza digitata. Se non
+     * c'e' ancora nessun fix si torna qui quando arriva, o dopo il permesso.
+     */
+    private fun routeToPlace(place: SearchPlace) {
+        if (startPlace == null || startAtUserPosition) {
+            if (!hasFineLocation()) {
+                pendingPlace = place
+                pendingPermissionAction = PermissionAction.ROUTE_TO_PLACE
+                setRouteStatus(getString(R.string.location_searching))
+                requestLocationPermissions()
+                return
+            }
+            val fix = lastUserFix ?: singleLocation.lastKnown()
+            if (fix == null) {
+                pendingPlace = place
+                setRouteStatus(getString(R.string.location_searching))
+                singleLocation.request { fresh -> fresh?.let { routeToPlace(place) } }
+                return
+            }
+            updatePositionMarker(fix)
+            setStartPlace(
+                SearchPlace(getString(R.string.my_location), fix.latitude, fix.longitude),
+                fromUserPosition = true,
+            )
+        }
+        pendingPlace = null
+        setDestinationPlace(place)
+        setPanelCollapsed(false)
+        calculateRoute()
+    }
+
     private fun loadMapStyle(loadedMap: MapLibreMap) {
         val styleUrl = STYLE_URL
         executor.execute {
             val localizedStyle = runCatching {
                 Style.Builder()
-                    .fromJson(localizeStyleJson(httpGet(styleUrl), appLanguage))
+                    .fromJson(buildMapStyleJson(httpGet(styleUrl), appLanguage))
             }.getOrNull()
             mainHandler.post {
                 if (isFinishing || isDestroyed) {
@@ -942,6 +1041,7 @@ class MainActivity : Activity() {
             }
             setStartPlace(
                 SearchPlace(getString(R.string.my_location), location.latitude, location.longitude),
+                fromUserPosition = true,
             )
             map?.animateCamera(
                 CameraUpdateFactory.newLatLngZoom(LatLng(location.latitude, location.longitude), 14.0),
@@ -993,6 +1093,18 @@ class MainActivity : Activity() {
                 }
             }
 
+            PermissionAction.ROUTE_TO_PLACE -> {
+                pendingPermissionAction = PermissionAction.NONE
+                // Serve la posizione precisa: con la sola approssimata il percorso partirebbe
+                // anche 1 km sbagliato, quindi niente rientro in routeToPlace().
+                if (hasFineLocation()) {
+                    pendingPlace?.let(::routeToPlace)
+                } else {
+                    pendingPlace = null
+                    setRouteStatus(getString(R.string.location_permission_denied))
+                }
+            }
+
             PermissionAction.NONE -> Unit
         }
     }
@@ -1033,6 +1145,18 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    /** Stessa priorita' di localizedNameExpression(), che sulle etichette legge name:it. */
+    private fun JsonObject.optLocalName(language: String): String? {
+        val keys = if (language.startsWith(ENGLISH_LANGUAGE, ignoreCase = true)) {
+            listOf("name:en", "name")
+        } else {
+            listOf("name:it", "name:latin", "name")
+        }
+        return keys.firstNotNullOfOrNull { key ->
+            get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+        }
+    }
+
     // Credito OSM toccabile: qui finisce l'obbligo di consegna delle licenze
     // (Apache-2.0 sez. 4a/4d). Un TextView scrollabile dentro la dialog: 15 KB di
     // testo, niente WebView e nessuna dipendenza nuova. Niente textIsSelectable:
@@ -1055,6 +1179,7 @@ class MainActivity : Activity() {
         ACCEPT_ROUTE,
         SET_START_LOCATION,
         CENTER_ON_USER,
+        ROUTE_TO_PLACE,
     }
 
     private companion object {
@@ -1080,6 +1205,7 @@ class MainActivity : Activity() {
         const val NETWORK_TIMEOUT_SECONDS = 10L
         const val ROUTE_SOURCE_ID = "route"
         const val ROUTE_LAYER_ID = "route-line"
+        const val POI_TOUCH_DP = 16
         const val EMPTY_ROUTE_GEOJSON = "{\"type\":\"FeatureCollection\",\"features\":[]}"
         // Stile, tile, sprite, font e ricerche condividono questa cache: 20 MB finivano subito.
         const val HTTP_CACHE_BYTES = 128L * 1024 * 1024
