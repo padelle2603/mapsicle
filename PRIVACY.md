@@ -1,15 +1,16 @@
 # Privacy Policy — Mapsicle
 
-_Last updated: 25 September 2026_
+_Last updated: 26 September 2026_
 
 > **Disclaimer.** This policy may be updated from time to time. The current
 > version is the one published in this document.
 
 This policy describes how Mapsicle handles data when you use it. The short
 answer is: **Mapsicle has no account, no server of its own, no analytics, no
-telemetry and no crash reporting.** It talks to exactly three public community
-services — the map tiles, the geocoder and the routing engine — and it tells you
-in this document what each of them receives.
+telemetry and no crash reporting.** It talks to exactly four public community
+services — the map tiles, the geocoder, the routing engine and the release feed of
+its own GitHub repository — and it tells you in this document what each of them
+receives.
 
 ## 1. What Mapsicle is
 
@@ -25,8 +26,8 @@ developer that your data could reach.
 ## 2. Network access
 
 Mapsicle performs **no tracking, no analytics, no telemetry, no advertising and
-no fingerprinting**. It contacts only the three services needed to draw a map,
-to search a place and to compute a route. Every request is **direct**: Mapsicle
+no fingerprinting**. It contacts only the four services needed to draw a map,
+to search a place, to compute a route and to tell you when a new version is out. Every request is **direct**: Mapsicle
 adds no server of its own to the path, and the developer has no way to see,
 intercept or record the traffic between your device and those services.
 
@@ -71,6 +72,15 @@ one shows its name, its category and how far it is from you, all on your device:
 **no request, no identifier and no position is sent** when you tap a place. Asking
 for directions to it is a routing request, and follows the next section.
 
+The "Open in Google Maps" button of that card is the one exception, and only
+because you tap it: it hands **the name of the place** to the Google Maps app (or
+to your browser, if Google Maps is not installed) through a normal
+`https://www.google.com/maps/search/?api=1&query=<name>` link. What happens to
+the request after that — including whether Google shows it to you as a
+search — is covered by [Google's privacy policy](https://policies.google.com/privacy).
+**Your position is not part of that link**, and Mapsicle sends no data to Google
+itself: the link is opened by the other app, not fetched by this one.
+
 ### 2.4 Routing — `brouter.de`
 
 When you compute a route, the app sends to the public
@@ -83,6 +93,22 @@ precision**. This is inherent to routing: a router needs the two points to
 connect. The route you get back is then computed and followed **entirely on
 your device** — subsequent position updates during guidance are never sent
 anywhere.
+
+### 2.5 Update check — `api.github.com`
+
+Once per app start, the app asks the public
+[GitHub API](https://docs.github.com/en/rest) for the latest release of its own
+source repository. The request is anonymous — no account, no token, no
+`Authorization` header — and carries nothing but the IP address that every web
+server sees, the standard request headers and a `User-Agent` containing the app
+version. It sends **no device identifier, no position, no search text and no
+information about what is on your map**.
+
+The answer is used for one thing: if the version it names is newer than the one
+you installed, a dialog offers you the APK, and "Not now" simply closes it. The
+answer is not stored on your device, and declining changes nothing. GitHub
+answers 60 such anonymous requests per hour and per IP address; when that limit
+is reached the check fails silently and no dialog appears.
 
 ## 3. Data processed on your device
 
@@ -106,9 +132,10 @@ preferences file, no account and no sync.
 The only thing it writes to storage is a **128 MB HTTP cache** in the
 application's private cache directory (`cache/http`), used so that map tiles,
 sprites, fonts and repeated requests do not have to be downloaded again. Like
-any web cache, it also contains the geocoding and routing **responses**, and the
-request URLs that produced them — so the text you searched and the coordinates
-of the route you asked for can be found in that cache. It is readable only by
+any web cache, it also contains the geocoding, routing and update-check
+**responses**, and the request URLs that produced them — so the text you
+searched and the coordinates of the route you asked for can be found in that
+cache. It is readable only by
 Mapsicle itself (and by root or a device backup tool), and Android clears it
 when the app's cache is cleared or the app is uninstalled.
 
@@ -124,7 +151,7 @@ time, two are requested only when you use the feature that needs them.
 
 | Permission | Why | When it is requested |
 |---|---|---|
-| `INTERNET` | the three network services listed above | granted at install, **no dialog** |
+| `INTERNET` | the four network services listed above | granted at install, **no dialog** |
 | `ACCESS_NETWORK_STATE` | tell "offline" apart from "server error" | granted at install, **no dialog** |
 | `ACCESS_FINE_LOCATION` | the blue dot, "centre on me", starting a route from your position, and route guidance | **runtime dialog**, only when you tap "my location", "use GPS as start", or accept a computed route |
 | `ACCESS_COARSE_LOCATION` | same features, with a less precise position | same dialog as above |
@@ -150,6 +177,7 @@ auto-centring and the "start from my position" option are disabled.
 | [OpenFreeMap](https://openfreemap.org/) / [OpenMapTiles](https://openmaptiles.org/) | free map tile hosting, no account, no API key | the map area you are viewing, IP address, request headers |
 | [Photon](https://photon.komoot.io/) (komoot) | free geocoder, no account, no API key | your search text and, only with the location permission granted, a rounded (~111 m) position used to rank results |
 | [BRouter](https://brouter.de/) | free routing service, no account, no API key | start and destination coordinates and the travel profile |
+| [GitHub](https://github.com/) (`api.github.com`) | the release feed of the public source repository, read once per app start, no account and no token | IP address, `User-Agent` with the app version, nothing else — no device identifier, no position, no search text |
 | [OpenStreetMap](https://www.openstreetmap.org/) | the underlying map data (not contacted at runtime) | n/a — the data is downloaded as tiles from OpenFreeMap |
 
 These are public, community-run services. They are contacted directly by your

@@ -59,6 +59,12 @@
     <string name="nav_continue_path">Continue along the route</string>
     <string name="map_credit">© OpenStreetMap contributors · Licenses</string>
     <string name="place_directions">Directions</string>
+    <string name="place_open_in_google_maps">Open in Google Maps</string>
+    <string name="error_no_app_for_link">No app can open this link</string>
+    <string name="update_available">Mapsicle %1$s is available</string>
+    <string name="update_message">You are running %1$s. The download opens in your browser.</string>
+    <string name="update_download">Download</string>
+    <string name="update_not_now">Not now</string>
     <string name="category_food">Food and drinks</string>
     <string name="category_shop">Shops</string>
     <string name="category_lodging">Accommodation</string>

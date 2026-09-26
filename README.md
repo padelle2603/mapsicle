@@ -20,7 +20,9 @@ License: [MIT](LICENSE) · [Manifesto](MANIFEST.md) · [Legal](LEGAL.md) ·
   over Milan, no extra request and nothing new to cache. Icons from z16, names
   from z17, and only named places worth going to: no rubbish bins, gates or
   telephone poles. Tap one for its name, category and distance, then "Directions"
-  routes to it from where you are, unless you already typed a start.
+  routes to it from where you are, unless you already typed a start, and
+  "Open in Google Maps" hands the place over to Google Maps for the hours and
+  the reviews the tile does not carry.
 - **Search**: geocoding via Photon, debounced, served from a small thread pool
   with an on-disk HTTP cache. Results are shown as soon as they arrive and then
   refined, instead of being thrown away and re-fetched. Results are ranked
@@ -40,6 +42,10 @@ License: [MIT](LICENSE) · [Manifesto](MANIFEST.md) · [Legal](LEGAL.md) ·
   opens centered on where you are. It never prompts for permission on launch.
   It first paints the last fix the system already knows, so the map moves
   immediately, then refines on the live fix.
+- **Updates**: on start, one anonymous request to the GitHub API asks whether a
+  newer release of the app exists. If it does, a dialog offers the APK; if not,
+  or if the network or the rate limit says no, nothing happens at all. No
+  account, no token, no device identifier, nothing remembered about the answer.
 - **Dark mode**: follows the system theme.
 
 ## Building locally
@@ -133,6 +139,8 @@ app/src/main/java/com/padelle/mapsicle/
   Routing.kt           BRouter parsing, instructions, route progress
   Language.kt          locale resolution
   MapStyle.kt           map style localization, places layers and categories
+  Poi.kt                Google Maps link for a tapped place
+  Update.kt             GitHub release feed and version comparison
 ```
 
 ## Attribution

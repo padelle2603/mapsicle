@@ -10,7 +10,9 @@ package com.padelle.mapsicle
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -18,6 +20,7 @@ import android.graphics.RectF
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -29,6 +32,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import com.google.gson.JsonObject
 import com.padelle.mapsicle.databinding.ActivityMainBinding
 import okhttp3.Cache
@@ -176,6 +180,7 @@ class MainActivity : Activity() {
             loadedMap.addOnMapClickListener { latLng -> onMapClick(latLng) }
             loadMapStyle(loadedMap)
         }
+        checkForNewRelease()
 
         configurePanel()
         configureSearchField(binding.startInput)
@@ -863,7 +868,56 @@ class MainActivity : Activity() {
             .setTitle(place.displayName)
             .setMessage(message)
             .setPositiveButton(R.string.place_directions) { _, _ -> routeToPlace(place) }
+            .setNeutralButton(R.string.place_open_in_google_maps) { _, _ ->
+                openExternalUrl(buildPlaceUrl(place.displayName))
+            }
             .setNegativeButton(R.string.about_close, null)
+            .show()
+    }
+
+    /**
+     * Apre un link in un'altra app. Un Intent VIEW senza un'app che lo sappia fare
+     * solleva ActivityNotFoundException: meglio un Toast che un crash. Serve sia per il
+     * link al POI su Google Maps sia per il download dell'aggiornamento.
+     */
+    private fun openExternalUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.error_no_app_for_link, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Una richiesta a GitHub per capire se c'e' una release piu' nuova di questa build.
+     * Fallisce in silenzio: niente rete, niente thread nuovo, niente dialog, niente
+     * scrittura su disco. Il pool e' gia' quello dello stile, della ricerca e del routing.
+     */
+    private fun checkForNewRelease() {
+        executor.execute {
+            val release = runCatching {
+                parseLatestRelease(httpGet(LATEST_RELEASE_URL))
+            }.getOrNull() ?: return@execute
+            if (!isNewerVersion(release.version, BuildConfig.VERSION_NAME)) {
+                return@execute
+            }
+            mainHandler.post {
+                if (isFinishing || isDestroyed) {
+                    return@post
+                }
+                showNewReleaseDialog(release)
+            }
+        }
+    }
+
+    private fun showNewReleaseDialog(release: AppRelease) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.update_available, release.version))
+            .setMessage(getString(R.string.update_message, BuildConfig.VERSION_NAME))
+            .setPositiveButton(R.string.update_download) { _, _ ->
+                openExternalUrl(release.apkUrl ?: release.notesUrl)
+            }
+            .setNegativeButton(R.string.update_not_now, null)
             .show()
     }
 
