@@ -21,13 +21,8 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.Editable
 import android.text.method.ScrollingMovementMethod
-import android.text.TextWatcher
-import android.view.KeyEvent
 import android.view.View
-import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.TextView
 import com.padelle.mapsicle.databinding.ActivityMainBinding
 import okhttp3.Cache
@@ -61,6 +56,7 @@ import java.util.concurrent.TimeUnit
 class MainActivity : Activity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var suggestions: Suggestions
+    private lateinit var searchPanel: SearchPanel
     private lateinit var placeCard: PlaceCard
     private lateinit var singleLocation: SingleLocation
 
@@ -94,7 +90,6 @@ class MainActivity : Activity() {
             .build()
     }
 
-    private var activeInput: EditText? = null
     private var startPlace: SearchPlace? = null
     private var startAtUserPosition = false
     private var pendingPlace: SearchPlace? = null
@@ -103,10 +98,8 @@ class MainActivity : Activity() {
     private var destinationMarker: Marker? = null
     private var currentLocationMarker: Marker? = null
     private var currentRoute: RouteResult? = null
-    private var latestSuggestions: List<SearchPlace> = emptyList()
     private var routeInFlight = false
     private var routeRequestId = 0
-    private var suppressTextChange = false
     private var panelCollapsed = true
     private var guidanceActive = false
     private var locationUpdatesActive = false
@@ -156,21 +149,18 @@ class MainActivity : Activity() {
             fetchJson = { url -> httpGet(url) },
             onRoute = { place -> routeToPlace(place) },
         )
-        suggestions.onSearching = {
-            // Only if there is nothing to show yet: otherwise the "searching" text
-            // blinks on every key pressed.
-            if (latestSuggestions.isEmpty()) {
-                setSuggestionStatus(getString(R.string.searching_suggestions))
-            }
-        }
-        suggestions.onResults = { results ->
-            latestSuggestions = results
-            showSuggestions(results)
-            if (results.isNotEmpty()) {
-                setSuggestionStatus("")
-            }
-        }
-        suggestions.onError = { setSuggestionStatus(getString(R.string.suggestions_error)) }
+        searchPanel = SearchPanel(
+            activity = this,
+            startInput = binding.startInput,
+            destinationInput = binding.destinationInput,
+            resultsContainer = binding.resultsContainer,
+            resultsScroll = binding.resultsScroll,
+            statusLabel = binding.suggestionStatus,
+            suggestions = suggestions,
+            onDepartureChanged = { place -> onDepartureEdited(place) },
+            onDestinationChanged = { place -> onDestinationEdited(place) },
+        )
+        searchPanel.attach()
 
         singleLocation = SingleLocation(
             locationManager(),
@@ -195,8 +185,6 @@ class MainActivity : Activity() {
         }
         updateCheck.check()
         configurePanel()
-        configureSearchField(binding.startInput)
-        configureSearchField(binding.destinationInput)
         binding.routeButton.setOnClickListener { calculateRoute() }
         binding.acceptRouteButton.setOnClickListener { acceptRoute() }
         binding.stopNavigationButton.setOnClickListener {
@@ -296,106 +284,40 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun configureSearchField(field: EditText) {
-        field.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                activeInput = field
-                if (field.text.toString().trim().length >= MIN_QUERY_LENGTH) {
-                    suggestions.request(field.text.toString(), immediate = true)
-                } else {
-                    clearSuggestions()
-                }
-            }
-        }
-        field.setOnClickListener { activeInput = field }
-        field.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
-
-            override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) = Unit
-
-            override fun afterTextChanged(text: Editable?) {
-                if (suppressTextChange) {
-                    return
-                }
-                if (field === binding.startInput) {
-                    startPlace = null
-                    startMarker?.remove()
-                    startMarker = null
-                } else {
-                    destinationPlace = null
-                    destinationMarker?.remove()
-                    destinationMarker = null
-                }
-                invalidateRoute()
-                if (activeInput === field) {
-                    val value = text?.toString().orEmpty()
-                    if (value.trim().length >= MIN_QUERY_LENGTH) {
-                        suggestions.request(value)
-                    } else {
-                        clearSuggestions()
-                    }
-                }
-            }
-        })
-        field.setOnEditorActionListener { _, actionId, event ->
-            val submitted = actionId == EditorInfo.IME_ACTION_SEARCH ||
-                event?.keyCode == KeyEvent.KEYCODE_ENTER
-            if (submitted) {
-                if (latestSuggestions.isNotEmpty()) {
-                    selectSuggestion(latestSuggestions.first())
-                } else {
-                    suggestions.request(field.text.toString(), immediate = true)
-                }
-                true
-            } else {
-                false
-            }
-        }
-    }
-
-    private fun showSuggestions(results: List<SearchPlace>) {
-        binding.resultsContainer.removeAllViews()
-        if (results.isEmpty()) {
-            binding.resultsScroll.visibility = View.GONE
-            setSuggestionStatus(getString(R.string.suggestions_empty))
+    /**
+     * The panel says the text of a field changed, or that a place was picked from the list.
+     * A null place is the text the user typed over a chosen one, so the marker goes and the
+     * route is invalidated; a place is the choice, which sets the endpoint and moves the
+     * camera. What happens to the route is the routing's business and stays here.
+     */
+    private fun onDepartureEdited(place: SearchPlace?) {
+        if (place == null) {
+            startPlace = null
+            startMarker?.remove()
+            startMarker = null
+            invalidateRoute()
             return
         }
-        binding.resultsScroll.visibility = View.VISIBLE
-        results.forEach { place ->
-            val row = TextView(this).apply {
-                text = place.displayName
-                textSize = 15f
-                setTextColor(getColor(R.color.text_primary))
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                minHeight = dp(52)
-                isClickable = true
-                contentDescription = place.displayName
-                setOnClickListener { selectSuggestion(place) }
-            }
-            binding.resultsContainer.addView(row)
-        }
+        setStartPlace(place, fromUserPosition = false)
+        revealOnMap(place)
     }
 
-    private fun selectSuggestion(place: SearchPlace) {
-        val field = activeInput ?: return
-        if (field === binding.startInput) {
-            setStartPlace(place, fromUserPosition = false)
-        } else {
-            setDestinationPlace(place)
+    private fun onDestinationEdited(place: SearchPlace?) {
+        if (place == null) {
+            destinationPlace = null
+            destinationMarker?.remove()
+            destinationMarker = null
+            invalidateRoute()
+            return
         }
-        clearSuggestions()
-        field.clearFocus()
+        setDestinationPlace(place)
+        revealOnMap(place)
+    }
+
+    private fun revealOnMap(place: SearchPlace) {
         map?.animateCamera(
             CameraUpdateFactory.newLatLngZoom(LatLng(place.latitude, place.longitude), 13.0),
         )
-    }
-
-    private fun clearSuggestions() {
-        suggestions.clear()
-        binding.resultsContainer.removeAllViews()
-        binding.resultsScroll.visibility = View.GONE
-        latestSuggestions = emptyList()
-        setSuggestionStatus("")
     }
 
     private fun invalidateRoute() {
@@ -598,8 +520,7 @@ class MainActivity : Activity() {
      */
     private fun clearItinerary() {
         closeGuidance()
-        binding.startInput.setText("")
-        binding.destinationInput.setText("")
+        searchPanel.clearFields()
     }
 
     private fun finishGuidance() {
@@ -812,9 +733,7 @@ class MainActivity : Activity() {
         invalidateRoute()
         startPlace = place
         startAtUserPosition = fromUserPosition
-        suppressTextChange = true
-        binding.startInput.setText(place.displayName)
-        suppressTextChange = false
+        searchPanel.writeStart(place.displayName)
         updateRouteButton()
         updateEndpointMarkers()
         updateHeaderSummary()
@@ -823,9 +742,7 @@ class MainActivity : Activity() {
     private fun setDestinationPlace(place: SearchPlace) {
         invalidateRoute()
         destinationPlace = place
-        suppressTextChange = true
-        binding.destinationInput.setText(place.displayName)
-        suppressTextChange = false
+        searchPanel.writeDestination(place.displayName)
         updateRouteButton()
         updateEndpointMarkers()
     }
@@ -1127,17 +1044,10 @@ class MainActivity : Activity() {
         return getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
-    private fun setSuggestionStatus(message: String) {
-        binding.suggestionStatus.text = message
-        binding.suggestionStatus.visibility = if (message.isBlank()) View.GONE else View.VISIBLE
-    }
-
     private fun setRouteStatus(message: String) {
         binding.routeStatus.text = message
         binding.routeStatus.visibility = if (message.isBlank()) View.GONE else View.VISIBLE
     }
-
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     // Tappable OSM credit: this is where the obligation to deliver the licences ends
     // (Apache-2.0 sections 4a/4d). A scrollable TextView inside the dialog: 15 KB of
@@ -1171,7 +1081,6 @@ class MainActivity : Activity() {
         const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
         val USER_AGENT = "Mapsicle/${BuildConfig.VERSION_NAME} (Android; ${BuildConfig.APPLICATION_ID})"
         const val LOCATION_REQUEST_CODE = 1001
-        const val MIN_QUERY_LENGTH = 3
         const val LOCATION_UPDATE_INTERVAL_MS = 1_000L
         const val LOCATION_UPDATE_MIN_DISTANCE_METERS = 2f
         const val CAMERA_ANIMATION_MS = 600

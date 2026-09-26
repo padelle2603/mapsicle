@@ -3,6 +3,11 @@ package com.padelle.mapsicle
 import android.os.Handler
 import java.util.concurrent.Executor
 
+// It was a private constant of Suggestions, mirrored as a second copy in the companion of
+// MainActivity, and both had drifted into the class that now asks: the panel needs it to tell
+// a request worth making from one that would only empty the list.
+internal const val MIN_QUERY_LENGTH = 3
+
 internal class Suggestions(
     private val handler: Handler,
     private val executor: Executor,
@@ -87,6 +92,5 @@ internal class Suggestions(
 
     private companion object {
         const val DEBOUNCE_MS = 180L
-        const val MIN_QUERY_LENGTH = 3
     }
 }
