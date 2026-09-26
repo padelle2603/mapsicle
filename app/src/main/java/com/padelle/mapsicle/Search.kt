@@ -8,14 +8,14 @@ import java.util.Locale
 private const val PHOTON_ENDPOINT = "https://photon.komoot.io/api/"
 private const val RESULT_LIMIT = 5
 
-// Chiediamo il doppio perche' con il bias gli omonimi vicini si ripetono: se i duplicati
-// occupassero gli stessi 5 slot, l'utente ne vedrebbe 3 invece di 5.
+// We ask for twice as much because with the bias nearby namesakes repeat: if the
+// duplicates took the same 5 slots, the user would see 3 instead of 5.
 private const val PHOTON_FETCH_LIMIT = RESULT_LIMIT * 2
 
-// Il raggio del bias e' 0.25km * 2^(18-zoom), quindi a z12 copre 16km.
-// location_bias_scale 0.4 lascia contare l'importanza del luogo al 40%. Sono entrambi
-// diversi dai default di Photon (0.2 e z16, che vuol dire 1km): con quelli, cercando
-// "Roma" da Milano vince una panetteria omonima e la citta sparisce dai primi risultati.
+// The bias radius is 0.25km * 2^(18-zoom), so at z12 it covers 16km.
+// location_bias_scale 0.4 lets the importance of the place count for 40%. Both differ
+// from Photon's defaults (0.2 and z16, which means 1km): with those, searching for
+// "Roma" from Milan is won by a namesake bakery and the city disappears from the top.
 private const val BIAS_SCALE = "0.4"
 private const val BIAS_ZOOM = "12"
 
@@ -36,9 +36,9 @@ internal fun buildSuggestionUrl(
     center: SearchCenter? = null,
 ): String {
     val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
-    // Photon accetta solo default/de/en/fr: mandare lang=it risponde HTTP 400. Per
-    // l'italiano omettiamo lang e Photon restituisce i nomi nativi, che e' quello che
-    // serve. Non "correggere" questo in lang=it senza verifica.
+    // Photon only accepts default/de/en/fr: sending lang=it answers HTTP 400. For
+    // Italian we omit lang and Photon returns the native names, which is what we want.
+    // Do not "fix" this into lang=it without checking.
     val languageParam = if (language.equals(ENGLISH_LANGUAGE, ignoreCase = true)) "&lang=en" else ""
     val biasParam = if (center == null) {
         ""
@@ -50,11 +50,11 @@ internal fun buildSuggestionUrl(
     return "$PHOTON_ENDPOINT?q=$encodedQuery&limit=$PHOTON_FETCH_LIMIT$languageParam$biasParam"
 }
 
-// Locale.US non e' un dettaglio: su un telefono italiano String.format userebbe la
-// virgola e "45,464" per Photon non sarebbe la stessa coordinata. Tre decimali sono
-// ~111m, trascurabile rispetto al raggio di 16km del bias, e serve anche a non
-// far esplodere la cache: OkHttp la indicizza sull'URL, quindi a piena precisione ogni
-// fix creerebbe una chiave nuova.
+// Locale.US is not a detail: on an Italian phone String.format would use the comma,
+// and "45,464" is not the same coordinate for Photon. Three decimals are ~111m,
+// negligible against the 16km bias radius, and they also keep the cache from
+// exploding: OkHttp keys it on the URL, so at full precision every fix would create a
+// new entry.
 private fun formatCoordinate(value: Double): String = String.format(Locale.US, "%.3f", value)
 
 internal fun parseSuggestions(json: String): List<SearchPlace> {
@@ -84,10 +84,10 @@ internal fun parseSuggestions(json: String): List<SearchPlace> {
             .filter { it.isNotEmpty() }
             .distinct()
             .joinToString(", ")
-        // Il bias porta in cima gli omonimi di casa: "Duomo, Piazza del Duomo, Cinque
-        // Vie, Milano" arriva due volte (due stazioni a 30m) e "Montenapoleone" tre.
-        // Due voci con lo stesso indirizzo sono indistinguibili in elenco, quindi tengo la
-        // prima e passo al successivo.
+        // The bias brings home namesakes to the top: "Duomo, Piazza del Duomo, Cinque
+        // Vie, Milano" arrives twice (two stations 30m apart) and "Montenapoleone" three
+        // times. Two entries with the same address are indistinguishable in the list, so
+        // I keep the first and move to the next.
         if (displayName.isEmpty() || !seen.add(displayName)) {
             continue
         }

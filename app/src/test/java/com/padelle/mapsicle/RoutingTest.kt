@@ -39,7 +39,7 @@ class RoutingTest {
 
     @Test
     fun dropsElevationFromRouteGeoJson() {
-        // BRouter con timode=3 risponde con coordinate 3D [lon, lat, quota]
+        // BRouter with timode=3 answers with 3D coordinates [lon, lat, altitude]
         val route = parseRouteResponse(
             """
             {"features":[{"type":"Feature","properties":{"track-length":"10","total-time":"5"},"geometry":{"type":"LineString","coordinates":[[12.500605,42.500165,86.0],[12.599686,42.600017,240.25]]}}]}
@@ -100,8 +100,8 @@ class RoutingTest {
 
     @Test
     fun cumulativeDistancesAreStableAcrossRepeatedCalls() {
-        // cumulativeMeters e' memoizzato su una rotta immutabile: se lo ricalcolassi o lo
-        // corrompessi, il progresso cambierebbe tra una chiamata e l'altra.
+        // cumulativeMeters is memoised on an immutable route: if I recomputed or
+        // corrupted it, the progress would change from one call to the next.
         val route = RouteResult(
             coordinates = listOf(
                 RoutePoint(0.0, 0.0),

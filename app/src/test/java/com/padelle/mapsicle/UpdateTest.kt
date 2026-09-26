@@ -9,7 +9,7 @@ import org.junit.Test
 class UpdateTest {
     @Test
     fun comparesVersionsByNumberNotByText() {
-        // Il bug classico: "1.10.0" come stringa e' minore di "1.9.0", come numeri no.
+        // The classic bug: "1.10.0" is smaller than "1.9.0" as a string, not as numbers.
         assertTrue(isNewerVersion("1.10.0", "1.9.0"))
         assertTrue(isNewerVersion("2.0.0", "1.99.99"))
         assertTrue(isNewerVersion("1.2.1", "1.2.0"))
@@ -24,11 +24,11 @@ class UpdateTest {
 
     @Test
     fun toleratesLocalBuildsAndOddVersions() {
-        // Il build di debug ha versionName "0.1": deve annunciare la release, non fallire.
+        // The debug build has versionName "0.1": it must announce the release, not fail.
         assertTrue(isNewerVersion("1.2.0", "0.1"))
-        // Confronto numerico stretto, zero componenti in piu': 1.2 == 1.2.0
+        // Tight numeric comparison, zero extra components: 1.2 == 1.2.0
         assertFalse(isNewerVersion("1.2", "1.2.0"))
-        // Suffissi non numerici: vale 0, non eccezione.
+        // Non-numeric suffixes: they count as 0, not an exception.
         assertFalse(isNewerVersion("1.2.0-rc1", "1.2.0"))
         assertTrue(isNewerVersion("1.3.0", "1.2.0-rc1"))
     }
@@ -61,9 +61,8 @@ class UpdateTest {
 
     @Test
     fun survivesResponsesWithoutWhatItNeeds() {
-        // 404 di GitHub, rate limit esaurito, HTML per un'errore di rete, release senza
-        // link: nessuna di queste risposte deve far crashare l'avvio, solo restare senza
-        // popup.
+        // GitHub 404, rate limit exhausted, HTML for a network error, release with no
+        // link: none of these responses may crash the start, they just leave no popup.
         assertNull(parseLatestRelease("""{"message": "Not Found"}"""))
         assertNull(parseLatestRelease("Not Found"))
         assertNull(parseLatestRelease(""))

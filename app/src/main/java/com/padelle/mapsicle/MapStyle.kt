@@ -4,9 +4,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Stile localize + layer POI dell'app. I POI non vengono da nessun servizio in piu': il
- * layer `poi` e' gia' dentro il tile che disegna il basemap (7000 luoghi con nome per
- * tile z14 sopra Milano) e le icone di categoria sono nello sprite che lo stile indica.
+ * The app's localized style and POI layers. The POI come from no extra service: the
+ * `poi` layer is already inside the tile that draws the basemap (7000 named places per
+ * z14 tile over Milan) and the category icons are in the sprite the style points at.
  */
 internal fun buildMapStyleJson(styleJson: String, language: String): String {
     return addPoiLayers(localizeStyleJson(styleJson, language), language)
@@ -105,18 +105,18 @@ internal fun localizedNameExpression(language: String): JSONArray {
     }
 }
 
-// I 3 layer poi_r* dello stile Liberty filtrano su ["get","rank"] e non disegnano mai
-// niente: nei tile la chiave 'rank' c'e' ma non ha valore su nessuna feature (verificato
-// su 7063/7063 a Milano e 6247/6247 a Roma). Qui vengono tolti e sostituiti dai 2 layer
-// sotto, che usano dati che esistono davvero.
+// The 3 poi_r* layers of the Liberty style filter on ["get","rank"] and never draw
+// anything: in the tiles the 'rank' key is there but has no value on any feature
+// (checked on 7063/7063 in Milan and 6247/6247 in Rome). Here they are removed and
+// replaced by the 2 layers below, which use data that really exists.
 private val DEAD_POI_LAYERS = setOf("poi_r1", "poi_r7", "poi_r20")
 
-// 55 classi con un nome e un motivo per cui qualcuno ci va. Le escluse sono le opere
-// pubbliche: waste_basket 879, gate 337, entrance 144, bollard 107, telephone 55,
+// 55 classes with a name and a reason to go there. The excluded ones are the public
+// works: waste_basket 879, gate 337, entrance 144, bollard 107, telephone 55,
 // drinking_water 45, lift_gate 27, toilets 28, recycling 6, sally_port 3, cycle_barrier 2.
-// Sono la maggior parte dei 7063 POI di un tile di Milano e nessuno di loro e' un posto
-// in cui andare, quindi non ha senso disegnarli. "has name" nel filtro: un punto senza
-// nome non si sa descrivere e non si puo' nemmeno toccare.
+// They are most of the 7063 POIs of a Milan tile and not one of them is a place to go to,
+// so drawing them makes no sense. "has name" in the filter: a point without a name cannot
+// be described and cannot even be touched.
 private val POI_CLASSES = listOf(
     "alcohol_shop", "art_gallery", "attraction", "bakery", "bank", "bar", "beer",
     "bicycle", "bicycle_parking", "bicycle_rental", "bus", "butcher", "cafe", "castle",
@@ -128,8 +128,8 @@ private val POI_CLASSES = listOf(
     "sports_centre", "swimming_pool", "theatre", "town_hall", "veterinary", "yoga",
 )
 
-// Le 6 classi senza icona dedicata nello sprite: cadono sul dot generico dello sprite
-// stesso, cosi' non serve disegnare nulla e non serve registrare immagini a runtime.
+// The 6 classes with no dedicated icon in the sprite: they fall back on the generic dot
+// of the same sprite, so there is nothing to draw and no image to register at runtime.
 private val POI_CLASSES_WITHOUT_ICON = setOf(
     "office", "bicycle_parking", "motorcycle_parking", "swimming_pool", "sports_centre", "yoga",
 )
@@ -161,11 +161,11 @@ private fun poiLayer(id: String, minzoom: Int, layout: JSONObject) = JSONObject(
     .put("layout", layout)
 
 /**
- * Solo da z16: a z15 la viewport copre ~0.5 km2 e in un centro come Milano ci sono ~900
- * dei POI di un tile, tutti sovrapposti. Le icone si sovrappongono di proposito
- * (icon-allow-overlap) perche' un punto che sparisce quando il vicino passa davanti e'
- * peggio di un punto sovrapposto; le etichette invece no, e MapLibre scarta da se' quelle
- * che si pestano.
+ * Only from z16: at z15 the viewport covers ~0.5 km2 and in a city centre like Milan
+ * there are ~900 of the POIs of a tile, all overlapping. The icons overlap on purpose
+ * (icon-allow-overlap) because a point that vanishes when a neighbour passes in front of
+ * it is worse than an overlapping point; the labels do not, and MapLibre drops on its own
+ * the ones that collide.
  */
 private fun iconLayout() = JSONObject()
     .put(
@@ -184,7 +184,8 @@ private fun labelLayout(language: String) = JSONObject()
     .put("text-font", JSONArray().put("Noto Sans Italic"))
     .put("text-size", 12)
     .put("text-max-width", 9)
-    // "bottom" senza offset: il nome sta subito sopra l'icona, che e' centrata sul punto
+    // "bottom" with no offset: the name sits just above the icon, which is centred on
+    // the point
     .put("text-anchor", "bottom")
     .put(
         "paint",
@@ -214,8 +215,8 @@ internal fun poiFilter(): JSONArray = JSONArray()
     )
 
 /**
- * 55 classi -> 14 etichette: la scheda di un POI mostra la categoria, non la chiave OSM.
- * Con l'italiano in testa perche' il Manifest vuole che si legga nella lingua dell'utente.
+ * 55 classes -> 14 labels: the card of a POI shows the category, not the OSM key.
+ * Italian first because the Manifest wants it read in the language of the user.
  */
 internal fun poiCategoryLabelRes(category: String): Int = when (category) {
     "restaurant", "fast_food", "cafe", "bar", "beer", "ice_cream" -> R.string.category_food

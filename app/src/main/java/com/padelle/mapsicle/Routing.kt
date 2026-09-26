@@ -35,8 +35,8 @@ data class RouteResult(
     val durationSeconds: Double,
     val steps: List<RouteStep> = emptyList(),
 ) {
-    // Le distanze cumulate dipendono solo dalla rotta, ma venivano ricalcolate a ogni
-    // fix GPS: 461 segmenti di trigonometria e ~30 KB di allocazioni, 1-2 volte al secondo.
+    // The cumulative distances depend only on the route, yet they were recomputed on every
+    // GPS fix: 461 segments of trigonometry and ~30 KB of allocations, once or twice a second.
     internal val cumulativeMeters: DoubleArray by lazy {
         DoubleArray(coordinates.size).also { out ->
             for (index in 1 until coordinates.size) {
@@ -151,8 +151,8 @@ internal fun calculateRouteProgress(
         return RouteProgress(null, 0.0, 0.0, 0.0, 0, true)
     }
 
-    // Proiezione equirettangolare inline: projectPoint() allocava 2 oggetti per segmento,
-    // cioe' ~920 allocazioni a ogni fix. Stessa matematica, zero allocazioni.
+    // Equirectangular projection inlined: projectPoint() allocated 2 objects per segment,
+    // that is ~920 allocations on every fix. Same maths, zero allocations.
     val longitudeScale = METERS_PER_DEGREE_LAT * cos(Math.toRadians(latitude))
     val currentX = longitude * longitudeScale
     val currentY = latitude * METERS_PER_DEGREE_LAT

@@ -1,8 +1,8 @@
-// In MapLibre 13 l'intera API annotation (Marker, MarkerOptions, Icon, IconFactory,
-// addMarker) e' deprecata in favore degli strati symbol. La usiamo comunque qui: i
-// tre segnalini sono annotazioni statiche, non dati, e sostituirli con layer symbol
-// costerebbe piu' codice per un vantaggio che qui non si vede. Sopprimere a file
-// intero per non avere 11 warning identici a ogni build.
+// In MapLibre 13 the whole annotation API (Marker, MarkerOptions, Icon, IconFactory,
+// addMarker) is deprecated in favour of symbol layers. We use it anyway: the three
+// markers are static annotations, not data, and replacing them with symbol layers would
+// cost more code for an advantage that is not visible here. Suppressed for the whole
+// file to avoid 11 identical warnings on every build.
 @file:Suppress("DEPRECATION")
 
 package com.padelle.mapsicle
@@ -71,7 +71,7 @@ class MainActivity : Activity() {
     private lateinit var mapView: MapView
     private var map: MapLibreMap? = null
 
-    // 3 thread: scarica dello stile, routing e ricerca non si bloccano a vicenda.
+    // 3 threads: style download, routing and search do not block each other.
     private val executor: ExecutorService = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -109,8 +109,8 @@ class MainActivity : Activity() {
     private var cameraFollow = false
     private var pendingPermissionAction = PermissionAction.NONE
 
-    // Ultimo fix ricevuto: serve per ricreare il segnalino quando lo stile viene
-    // ricaricato e per decidere dove mettere la camera al primo avvio.
+    // Last fix received: needed to recreate the marker when the style is reloaded and to
+    // decide where to put the camera on the first start.
     private var lastUserFix: Location? = null
     private var userLocated = false
 
@@ -144,8 +144,8 @@ class MainActivity : Activity() {
 
         suggestions = Suggestions(mainHandler, executor, appLanguage) { url -> httpGet(url) }
         suggestions.onSearching = {
-            // Solo se non c'e' gia' qualcosa da mostrare: altrimenti il testo
-            // "ricerca in corso" lampeggia a ogni tasto premuto.
+            // Only if there is nothing to show yet: otherwise the "searching" text
+            // blinks on every key pressed.
             if (latestSuggestions.isEmpty()) {
                 setSuggestionStatus(getString(R.string.searching_suggestions))
             }
@@ -169,7 +169,7 @@ class MainActivity : Activity() {
 
         mapView = binding.mapView
         mapView.onCreate(savedInstanceState)
-        // toccare la mappa stacca il follow automatico della camera
+        // touching the map breaks the automatic camera follow
         mapView.setOnTouchListener { _, _ ->
             cameraFollow = false
             false
@@ -188,16 +188,16 @@ class MainActivity : Activity() {
         binding.routeButton.setOnClickListener { calculateRoute() }
         binding.acceptRouteButton.setOnClickListener { acceptRoute() }
         binding.stopNavigationButton.setOnClickListener {
-            // "Termina guida" chiude e azzera, "Chiudi guida" (dopo l'arrivo) lascia
-            // l'itinerario com'era
+            // "End route" closes and clears, "Close route" (after the arrival) leaves
+            // the itinerary as it was
             if (guidanceActive) clearItinerary() else closeGuidance()
         }
         binding.clearRouteButton.setOnClickListener { clearItinerary() }
         binding.mapCredit.setOnClickListener { showLicenses() }
         binding.startGpsButton.setOnClickListener { requestLocation() }
         binding.locationButton.setOnClickListener {
-            // il pulsante in basso a destra centra e basta: non deve sovrascrivere
-            // il campo partenza, altrimenti sposta quello che avevi digitato.
+            // the bottom right button only centres: it must not overwrite the departure
+            // field, or it would move what you had typed.
             if (!hasFineLocation() && !hasCoarseLocation()) {
                 pendingPermissionAction = PermissionAction.CENTER_ON_USER
                 requestLocationPermissions()
@@ -216,7 +216,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         mapView.onResume()
-        // il segnalino di posizione segue sempre che l'app e in primo piano
+        // the position marker follows whenever the app is in the foreground
         if (hasFineLocation()) {
             startLocationUpdates()
         }
@@ -390,12 +390,12 @@ class MainActivity : Activity() {
         pendingPermissionAction = PermissionAction.NONE
         guidanceActive = false
         currentRoute = null
-        // invalida anche la richiesta in volo, altrimenti puo landingare sulla mappa
-        // una rotta calcolata per luoghi che l'utente ha gia cambiato
+        // it also invalidates the request in flight, otherwise a route calculated for
+        // places the user has already changed can land on the map
         routeRequestId += 1
         routeInFlight = false
         renderRoute(EMPTY_ROUTE_GEOJSON)
-        // il segnalino di posizione resta: non fa parte della rotta
+        // the position marker stays: it is not part of the route
         binding.routeContent.visibility = View.VISIBLE
         binding.navigationContent.visibility = View.GONE
         binding.acceptRouteButton.visibility = View.GONE
@@ -513,8 +513,8 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Il pannello di ricerca e ancorato in alto: senza un padding asimmetrico la camera
-     * centra la rotta sullo schermo e la meta superiore finisce sotto il pannello.
+     * The search panel is anchored at the top: without an asymmetric padding the camera
+     * centres the route on the screen and the upper half ends up under the panel.
      */
     private fun routeCameraPadding(): IntArray? {
         val mapHeight = binding.mapView.height
@@ -570,7 +570,7 @@ class MainActivity : Activity() {
             cameraFollow = false
             setRouteStatus(getString(R.string.navigation_stopped))
         }
-        // gli update restano attivi: il segnalino di posizione continua a seguire
+        // the updates stay on: the position marker keeps following
         binding.routeContent.visibility = View.VISIBLE
         binding.navigationContent.visibility = View.GONE
         binding.acceptRouteButton.visibility = View.VISIBLE
@@ -580,8 +580,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Svuota partenza e destinazione. I TextWatcher fanno il resto: azzerano i place,
-     * tolgono i segnalini, invalidano la rotta e i suggerimenti del campo attivo.
+     * Empties departure and destination. The TextWatchers do the rest: they clear the
+     * places, remove the markers, invalidate the route and the suggestions of the
+     * focused field.
      */
     private fun clearItinerary() {
         closeGuidance()
@@ -609,8 +610,8 @@ class MainActivity : Activity() {
         val manager = locationManager()
         var requested = false
         try {
-            // Solo GPS/fused: il provider network puo sbagliare di centinaia di
-            // metri e far saltare il segnalino indietro e avanti.
+            // GPS/fused only: the network provider can be hundreds of metres off and
+            // make the marker jump back and forth.
             locationProviders(manager).forEach { provider ->
                 try {
                     manager.requestLocationUpdates(
@@ -635,8 +636,8 @@ class MainActivity : Activity() {
         } catch (_: SecurityException) {
             return emptyList()
         }
-        // Un solo provider: fused e GPS insieme arrivano entrambi sullo stesso listener
-        // (fino a 2 fix/s), quindi tutto il lavoro per fix veniva fatto il doppio.
+        // One provider only: fused and GPS together both arrive on the same listener
+        // (up to 2 fix/s), so all the per-fix work was being done twice.
         val fused = LocationManager.FUSED_PROVIDER
         val gps = LocationManager.GPS_PROVIDER
         return when {
@@ -658,16 +659,16 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Sposta il segnalino di posizione riusando lo stesso Marker: MapLibre ha
-     * setPosition(), non serve (e non conviene) rimuovere e ricreare l'annotazione
-     * a ogni fix.
+     * Moves the position marker by reusing the same Marker: MapLibre has setPosition(),
+     * so there is no need (and it is not advisable) to remove and recreate the annotation
+     * on every fix.
      */
     private fun updatePositionMarker(location: Location) {
         lastUserFix = location
         userLocated = true
-        // Ogni fix arriva qui (cache d'avvio, one-shot, live), quindi e' l'unico punto in
-        // cui la ricerca impara da dove ci siamo: Photon lo usa solo per ordinare i
-        // risultati, non per filtrare, quindi una ricerca lontana continua a funzionare.
+        // Every fix arrives here (startup cache, one-shot, live), so this is the only
+        // place where the search learns where we are: Photon uses it only to sort the
+        // results, not to filter, so a search far away keeps working.
         suggestions.center = SearchCenter(location.latitude, location.longitude)
         val position = LatLng(location.latitude, location.longitude)
         val marker = currentLocationMarker
@@ -706,8 +707,9 @@ class MainActivity : Activity() {
             )
         }
         val progressText = getString(R.string.navigation_progress, progress.percent)
-        // setText rilassa e rimisura anche quando la stringa non e' cambiata: 3 di quei
-        // check a ogni fix, 1-2 volte al secondo, costano piu' del calcolo del progresso.
+        // setText re-lays out and re-measures even when the string has not changed: 3 of
+        // those checks on every fix, once or twice a second, cost more than the progress
+        // computation.
         if (binding.navigationInstruction.text != nextInstruction) {
             binding.navigationInstruction.text = nextInstruction
         }
@@ -727,7 +729,7 @@ class MainActivity : Activity() {
             target.latitude,
             target.longitude,
         )
-        // Non forzare lo zoom a ogni fix: se l'utente ha scelto un livello, resta.
+        // Do not force the zoom on every fix: if the user has picked a level, it stays.
         if (cameraFollow) {
             map?.animateCamera(
                 CameraUpdateFactory.newCameraPosition(
@@ -749,9 +751,9 @@ class MainActivity : Activity() {
 
     @Suppress("DEPRECATION")
     /**
-     * IconFactory.fromResource() in MapLibre 13 accetta solo BitmapDrawable e lancia
-     * IllegalArgumentException su un drawable vettoriale, quindi rasterizzo a mano.
-     * 96px per il cerchio da 24dp: abbondante anche su schermi xxxhdpi.
+     * IconFactory.fromResource() in MapLibre 13 only accepts BitmapDrawable and throws
+     * IllegalArgumentException on a vector drawable, so I rasterise it by hand.
+     * 96px for the 24dp circle: plenty even on xxxhdpi screens.
      */
     private fun bitmapIcon(iconRes: Int): Icon? {
         val drawable = resources.getDrawable(iconRes, theme) ?: return null
@@ -817,10 +819,10 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Toccando un POI si apre la scheda con il nome, la categoria e la distanza.
-     * La query e' un rettangolo di 16dp attorno al tocco invece del punto esatto: le icone
-     * del tile sono 11px e un tocco mirato col dito e' impossibile, quindi il bersaglio si
-     * allarga qui e non con un layer invisibile.
+     * Touching a POI opens the card with the name, the category and the distance.
+     * The query is a 16dp rectangle around the touch instead of the exact point: the
+     * tile icons are 11px and hitting one with a finger is impossible, so the target is
+     * widened here rather than with an invisible layer.
      */
     private fun onMapClick(latLng: LatLng): Boolean {
         val loadedMap = map ?: return false
@@ -851,7 +853,7 @@ class MainActivity : Activity() {
         val message = if (fix == null) {
             category
         } else {
-            // riuso il formato "%1$s · %2$s" del riepilogo rotta: e' lo stesso fatto
+            // I reuse the "%1$s · %2$s" format of the route summary: it is the same fact
             getString(
                 R.string.route_summary,
                 category,
@@ -876,9 +878,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Apre un link in un'altra app. Un Intent VIEW senza un'app che lo sappia fare
-     * solleva ActivityNotFoundException: meglio un Toast che un crash. Serve sia per il
-     * link al POI su Google Maps sia per il download dell'aggiornamento.
+     * Opens a link in another app. A VIEW Intent with no app able to handle it throws
+     * ActivityNotFoundException: a Toast is better than a crash. It serves both the link
+     * to the POI on Google Maps and the download of the update.
      */
     private fun openExternalUrl(url: String) {
         try {
@@ -889,9 +891,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Una richiesta a GitHub per capire se c'e' una release piu' nuova di questa build.
-     * Fallisce in silenzio: niente rete, niente thread nuovo, niente dialog, niente
-     * scrittura su disco. Il pool e' gia' quello dello stile, della ricerca e del routing.
+     * One request to GitHub to find out whether there is a release newer than this build.
+     * It fails silently: no network, no new thread, no dialog, no writing to disk. The
+     * pool is already the one of the style, the search and the routing.
      */
     private fun checkForNewRelease() {
         executor.execute {
@@ -922,9 +924,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * "Indicazioni" su un POI: parte dalla mia posizione se il campo partenza e' vuoto o
-     * contiene gia' la mia posizione, altrimenti rispetta la partenza digitata. Se non
-     * c'e' ancora nessun fix si torna qui quando arriva, o dopo il permesso.
+     * "Directions" on a POI: it starts from my position if the departure field is empty or
+     * already holds my position, otherwise it respects the typed departure. If there is
+     * no fix yet, we come back here when it arrives, or after the permission.
      */
     private fun routeToPlace(place: SearchPlace) {
         if (startPlace == null || startAtUserPosition) {
@@ -979,8 +981,8 @@ class MainActivity : Activity() {
     }
 
     private fun onMapStyleLoaded(loadedMap: MapLibreMap) {
-        // Ricaricare lo stile non deve ripiombrare la camera sull'Italia se l'utente si
-        // e' gia' posizionato: si applica il default solo al primo caricamento.
+        // Reloading the style must not drop the camera back on Italy if the user has
+        // already positioned themselves: the default applies only on the first load.
         if (userLocated) {
             lastUserFix?.let { centerOnUser(it, animate = false) }
         } else {
@@ -989,13 +991,13 @@ class MainActivity : Activity() {
                 .zoom(DEFAULT_ZOOM)
                 .build()
         }
-        // Source e layer della rotta vivono solo nel runtime: se lo stile viene ricreato
-        // (rotazione, restore di MapView) vanno persi, quindi li riaggiungo qui.
+        // The route source and layer live only in the runtime: if the style is recreated
+        // (rotation, MapView restore) they are lost, so I add them back here.
         currentRoute?.let { renderRoute(it.toGeoJson()) }
         updateEndpointMarkers()
-        // le annotation del segnalino di posizione spariscono col reload dello stile:
-        // senza questo reset currentLocationMarker continuerebbe a puntare a un Marker
-        // morto e il fix qui sotto non ricreerebbe nulla.
+        // the annotations of the position marker disappear with the style reload:
+        // without this reset currentLocationMarker would keep pointing at a dead Marker
+        // and the fix below would recreate nothing.
         currentLocationMarker = null
         lastUserFix?.let { updatePositionMarker(it) }
         if (!userLocated) {
@@ -1019,10 +1021,11 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Apre l'app gia' centrata su dove sei, senza chiedere nulla: agisce solo se il
-     * permesso e' gia' stato concesso. Prima mostra subito l'ultima posizione nota dal
-     * sistema (istantanea) e poi si affina con il fix live appena arriva, cosi' la camera
-     * si ferma subito sulla zona giusta invece di aspettare il fix GPS.
+     * Opens the app already centred on where you are, without asking anything: it acts
+     * only if the permission has already been granted. First it shows at once the last
+     * position known to the system (the cached one) and then it refines with the live fix
+     * as soon as it arrives, so the camera stops right away on the right area instead of
+     * waiting for the GPS fix.
      */
     private fun locateUserOnStartup() {
         if (!hasFineLocation() && !hasCoarseLocation()) {
@@ -1114,8 +1117,8 @@ class MainActivity : Activity() {
             return
         }
         if (hasFineLocation() || hasCoarseLocation()) {
-            // onResume e' gia' passato prima del dialog: senza questo gli update non
-            // partono fino a quando l'app non torna in primo piano.
+            // onResume has already passed before the dialog: without this the updates do
+            // not start until the app comes back to the foreground.
             startLocationUpdates()
         }
         when (pendingPermissionAction) {
@@ -1149,8 +1152,8 @@ class MainActivity : Activity() {
 
             PermissionAction.ROUTE_TO_PLACE -> {
                 pendingPermissionAction = PermissionAction.NONE
-                // Serve la posizione precisa: con la sola approssimata il percorso partirebbe
-                // anche 1 km sbagliato, quindi niente rientro in routeToPlace().
+                // The precise position is needed: with only the approximate one the route
+                // would start up to 1 km off, so no return to routeToPlace().
                 if (hasFineLocation()) {
                     pendingPlace?.let(::routeToPlace)
                 } else {
@@ -1199,7 +1202,7 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    /** Stessa priorita' di localizedNameExpression(), che sulle etichette legge name:it. */
+    /** Same priority as localizedNameExpression(), which on the labels reads name:it. */
     private fun JsonObject.optLocalName(language: String): String? {
         val keys = if (language.startsWith(ENGLISH_LANGUAGE, ignoreCase = true)) {
             listOf("name:en", "name")
@@ -1211,10 +1214,10 @@ class MainActivity : Activity() {
         }
     }
 
-    // Credito OSM toccabile: qui finisce l'obbligo di consegna delle licenze
-    // (Apache-2.0 sez. 4a/4d). Un TextView scrollabile dentro la dialog: 15 KB di
-    // testo, niente WebView e nessuna dipendenza nuova. Niente textIsSelectable:
-    // si mette in conflitto con il drag per lo scroll.
+    // Tappable OSM credit: this is where the obligation to deliver the licences ends
+    // (Apache-2.0 sections 4a/4d). A scrollable TextView inside the dialog: 15 KB of
+    // text, no WebView and no new dependency. No textIsSelectable: it clashes with the
+    // drag for scrolling.
     private fun showLicenses() {
         val text = TextView(this).apply {
             movementMethod = ScrollingMovementMethod()
@@ -1237,9 +1240,9 @@ class MainActivity : Activity() {
     }
 
     private companion object {
-        // OpenFreeMap: gratuito e senza chiave API. Liberty e' il classico stile OSM
-        // colorato (verde parchi, azzurro acqua); 111 layer / 43 KB contro i
-        // 160 layer / 167 KB di MapTiler Streets.
+        // OpenFreeMap: free and with no API key. Liberty is the classic OSM style in
+        // colour (green parks, blue water); 111 layers / 43 KB against the 160 layers /
+        // 167 KB of MapTiler Streets.
         const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
         val USER_AGENT = "Mapsicle/${BuildConfig.VERSION_NAME} (Android; ${BuildConfig.APPLICATION_ID})"
         const val LOCATION_REQUEST_CODE = 1001
@@ -1250,8 +1253,8 @@ class MainActivity : Activity() {
         const val GUIDANCE_ZOOM = 16.0
         const val MIN_FOLLOW_ZOOM = 12.0
         const val MAX_FOLLOW_ZOOM = 18.0
-        // Zoom per "centrami qui": abbastanza vicino da orientarsi, non cosi' vicino
-        // da perdere il contesto.
+        // Zoom for "centre me here": close enough to get your bearings, not so close as
+        // to lose the context.
         const val STARTUP_ZOOM = 15.0
         const val DEFAULT_TARGET_LAT = 42.5
         const val DEFAULT_TARGET_LON = 12.5
@@ -1261,7 +1264,7 @@ class MainActivity : Activity() {
         const val ROUTE_LAYER_ID = "route-line"
         const val POI_TOUCH_DP = 16
         const val EMPTY_ROUTE_GEOJSON = "{\"type\":\"FeatureCollection\",\"features\":[]}"
-        // Stile, tile, sprite, font e ricerche condividono questa cache: 20 MB finivano subito.
+        // Style, tiles, sprite, fonts and searches share this cache: 20 MB ran out at once.
         const val HTTP_CACHE_BYTES = 128L * 1024 * 1024
         const val STATE_PANEL_COLLAPSED = "panel_collapsed"
     }

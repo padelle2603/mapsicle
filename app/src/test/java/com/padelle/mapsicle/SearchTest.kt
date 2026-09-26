@@ -21,8 +21,8 @@ class SearchTest {
 
     @Test
     fun omitsLocationBiasWhenPositionIsUnknown() {
-        // Senza permesso posizione non c'e' center: l'URL deve essere identico a prima,
-        // senza parametri di bias, altrimenti la ricerca cambierebbe comportamento.
+        // Without the location permission there is no center: the URL must be identical
+        // to before, with no bias parameters, or the search would change behaviour.
         val url = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE)
 
         assertFalse(url.contains("lat="))
@@ -33,8 +33,8 @@ class SearchTest {
 
     @Test
     fun addsMeasuredLocationBiasWhenPositionIsKnown() {
-        // 0.4 / z12: raggio 16km. I default di Photon (0.2 / z16 = 1km) fanno vincere
-        // una panetteria omonima cercando "Roma" da Milano.
+        // 0.4 / z12: 16km radius. Photon's defaults (0.2 / z16 = 1km) make a namesake
+        // bakery win when searching for "Roma" from Milan.
         val url = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.4642, 9.19))
 
         assertTrue(url.contains("&lat=45.464"))
@@ -45,9 +45,8 @@ class SearchTest {
 
     @Test
     fun roundsCoordinatesToKeepTheHttpCacheUsable() {
-        // OkHttp indicizza la cache del disco sull'URL: a piena precisione ogni fix
-        // creerebbe una chiave nuova. Verifichiamo che ~111m di differenza finiscano
-        // nella stessa stringa.
+        // OkHttp keys the disk cache on the URL: at full precision every fix would create
+        // a new entry. Let us check that ~111m of difference end up in the same string.
         val first = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.46421, 9.18998))
         val second = buildSuggestionUrl("Pizzeria", ITALIAN_LANGUAGE, SearchCenter(45.46429, 9.19003))
 
@@ -56,8 +55,8 @@ class SearchTest {
 
     @Test
     fun formatsCoordinatesWithADotEvenInACommaLocale() {
-        // Su un telefono italiano String.format userebbe la virgola e "45,464" non
-        // sarebbe la coordinata giusta per Photon.
+        // On an Italian phone String.format would use the comma and "45,464" would not
+        // be the right coordinate for Photon.
         val default = Locale.getDefault()
         try {
             Locale.setDefault(Locale.ITALY)
@@ -85,9 +84,9 @@ class SearchTest {
 
     @Test
     fun dropsDuplicatesAndKeepsFillingTheList() {
-        // Con il bias gli omonimi vicini si ripetono: due stazioni a 30m con lo stesso
-        // nome e indirizzo. Chiediamo 10 e teniamo i primi 5 unici, cosi' l'elenco non
-        // si accorcia.
+        // With the bias nearby namesakes repeat: two stations 30m apart with the same
+        // name and address. We ask for 10 and keep the first 5 unique, so the list does
+        // not get shorter.
         val feature = { id: String, lon: String, lat: String ->
             """{"type":"Feature","properties":{"name":"$id","street":"Via Roma","city":"Milano"},"geometry":{"type":"Point","coordinates":[$lon,$lat]}}"""
         }

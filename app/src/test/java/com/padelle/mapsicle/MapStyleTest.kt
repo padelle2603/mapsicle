@@ -60,8 +60,8 @@ class MapStyleTest {
 
     @Test
     fun dropsTheDeadPoiLayersAndAddsTheOnesThatMatchRealData() {
-        // poi_r1/r7/r20 filtrano su ["get","rank"], che nei tile non ha valore: resterebbero
-        // tre layer che non disegnano niente accanto ai due nuovi.
+        // poi_r1/r7/r20 filter on ["get","rank"], which has no value in the tiles: they
+        // would be three layers that draw nothing next to the two new ones.
         val layers = JSONObject(buildMapStyleJson(styleJson, ITALIAN_LANGUAGE))
             .getJSONArray("layers")
         val ids = (0 until layers.length()).map { layers.getJSONObject(it).getString("id") }
@@ -86,8 +86,8 @@ class MapStyleTest {
     @Test
     fun keepsPlacesAndDropsInfrastructure() {
         val classes = filteredClasses()
-        // su un tile di Milano: 879 waste_basket, 337 gate, 144 entrance, 107 bollard,
-        // 55 telephone, 45 drinking_water, 27 lift_gate. Nessuno e' un posto in cui andare.
+        // on a Milan tile: 879 waste_basket, 337 gate, 144 entrance, 107 bollard,
+        // 55 telephone, 45 drinking_water, 27 lift_gate. Not one is a place to go to.
         val infrastructure = setOf(
             "waste_basket", "gate", "entrance", "bollard", "telephone",
             "drinking_water", "lift_gate", "sally_port", "cycle_barrier",
@@ -107,8 +107,9 @@ class MapStyleTest {
         val withIcon = (0 until iconImage.getJSONArray(2).length())
             .map { iconImage.getJSONArray(2).getString(it) }
 
-        // 6 classi non hanno icona nello sprite e prendono dot_11, che e' gia' nello sprite:
-        // se una di queste finisse fra le icone, l'icona inesistente la renderebbe invisibile.
+        // 6 classes have no icon in the sprite and take dot_11, which is in the sprite
+        // already: if one of them ended up among the icons, the non-existent icon would
+        // make it invisible.
         assertEquals("dot_11", iconImage.getString(4))
         assertTrue(withIcon.contains("restaurant"))
         assertFalse(withIcon.contains("office"))

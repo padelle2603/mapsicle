@@ -21,12 +21,12 @@ internal class SingleLocation(
     private var timeout: Runnable? = null
 
     /**
-     * Ultima posizione gia' nota dal sistema, senza bloccare l'UI.
+     * Last position already known to the system, without blocking the UI.
      *
-     * Android mantiene l'ultimo fix in memoria anche a lungo dopo che il GPS si e' spento:
-     * restituirlo subito e' quello che rende l'apertura dell'app immediata invece che
-     * una schermata di attesa. I filtri buttano via i fix troppo vecchi o troppo imprecisi
-     * (una posizione di ieri non serve a nulla, ma una di 20 minuti fa va benissimo).
+     * Android keeps the last fix in memory long after the GPS has been switched off:
+     * handing it back at once is what makes opening the app immediate instead of a
+     * waiting screen. The filters throw away fixes that are too old or too imprecise (a
+     * position from yesterday is worth nothing, one from 20 minutes ago is just fine).
      */
     fun lastKnown(
         maxAgeMs: Long = LAST_KNOWN_MAX_AGE_MS,
@@ -48,10 +48,10 @@ internal class SingleLocation(
     }
 
     /**
-     * Fused quando c'': stima la posizione combinando GPS e rete, quindi e' veloce
-     * e precisa allo stesso tempo. La rete e' il secondo preferito perche' risponde in
-     * 1-2 secondi mentre il GPS a freddo puo' mettercene 30. Il GPS arriva per ultimo,
-     * solo quando non c'e' altro.
+     * Fused when there is one: it estimates the position by combining GPS and network,
+     * so it is fast and accurate at the same time. Network is the second choice because
+     * it answers in 1-2 seconds while a cold GPS can take 30. The GPS comes last, only
+     * when there is nothing else.
      */
     private fun preferredProvider(): String? {
         val enabled = try {
@@ -143,8 +143,8 @@ internal class SingleLocation(
     }
 
     private companion object {
-        // Con fused/network il fix arriva in 1-2s: oltre i 4s meglio l'ultimo noto
-        // che una schermata di attesa.
+        // With fused/network the fix arrives in 1-2s: past 4s the last known position
+        // is better than a waiting screen.
         const val LOCATION_TIMEOUT_MS = 4_000L
         const val LAST_KNOWN_MAX_AGE_MS = 30L * 60L * 1000L
         const val LAST_KNOWN_MAX_ACCURACY_METERS = 1_000f

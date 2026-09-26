@@ -15,8 +15,8 @@ internal class Suggestions(
     private var droppedWhileBusy = false
     private var latestQuery: String? = null
 
-    // Punto su cui Photon basa il ranking. Null = nessun bias, cioe' il comportamento
-    // di prima: la app non conosce la posizione finche' il permesso non e' concesso.
+    // The point Photon ranks around. Null = no bias, that is the behaviour from before:
+    // the app does not know the position until the permission is granted.
     var center: SearchCenter? = null
 
     var onSearching: (() -> Unit)? = null
@@ -55,7 +55,7 @@ internal class Suggestions(
             return
         }
         if (inFlight) {
-            // Non perdere la richiesta: verrà recuperata al completamento di quella in corso.
+            // Do not lose the request: it is taken up again when the running one completes.
             droppedWhileBusy = true
             return
         }
@@ -67,9 +67,9 @@ internal class Suggestions(
             }
             handler.post {
                 inFlight = false
-                // Mostra quello che e' arrivato invece di scartarlo: Photon risponde in
-                // ~1.6s, buttare i risultati e rifare la richiesta raddoppia l'attesa
-                // percepita. Poi si affina con la query piu' recente.
+                // Show what arrived instead of dropping it: Photon answers in ~1.6s, so
+                // throwing the results away and asking again doubles the perceived wait.
+                // Then it refines with the more recent query.
                 result.onSuccess { onResults?.invoke(it) }
                     .onFailure { if (gen == generation) onError?.invoke() }
                 if (gen != generation || droppedWhileBusy) {

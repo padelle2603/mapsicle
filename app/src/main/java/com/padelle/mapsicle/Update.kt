@@ -13,10 +13,10 @@ internal data class AppRelease(
 )
 
 /**
- * GitHub restituisce l'ultima release pubblicata (mai bozza o prerelease). Non serve
- * autenticazione: basta l'User-Agent che l'app gia' manda su ogni richiesta. Sono 60
- * richieste all'ora per IP, una per avvio dell'app: se la soglia finisce, la chiamata
- * fallisce e non succede niente, senza errori a schermo.
+ * GitHub returns the last published release (never a draft or a prerelease). No
+ * authentication is needed: the User-Agent the app already sends on every request is
+ * enough. That is 60 requests an hour per IP, one per app start: once the quota runs out
+ * the call fails and nothing happens, no error on screen.
  */
 internal fun parseLatestRelease(json: String): AppRelease? {
     val release = runCatching { JSONObject(json) }.getOrNull() ?: return null
@@ -24,8 +24,8 @@ internal fun parseLatestRelease(json: String): AppRelease? {
     if (version.isBlank()) {
         return null
     }
-    // Con --generate-notes il corpo contiene solo "Full Changelog": inutile in un dialog,
-    // quindi si usa solo il link alle note.
+    // With --generate-notes the body holds nothing but "Full Changelog": useless in a
+    // dialog, so only the link to the notes is used.
     val assets = release.optJSONArray("assets") ?: JSONArray()
     val apkUrl = (0 until assets.length())
         .mapNotNull { assets.optJSONObject(it) }
@@ -33,8 +33,8 @@ internal fun parseLatestRelease(json: String): AppRelease? {
         ?.optString("browser_download_url")
         ?.takeIf { it.isNotBlank() }
     val notesUrl = release.optString("html_url")
-    // Senza nessun link non c'e' nulla da aprire: meglio nessun popup che un Intent con
-    // una stringa vuota dentro.
+    // With no link at all there is nothing to open: no popup is better than an Intent
+    // carrying an empty string.
     if (apkUrl == null && notesUrl.isBlank()) {
         return null
     }
@@ -46,9 +46,9 @@ internal fun parseLatestRelease(json: String): AppRelease? {
 }
 
 /**
- * Numerico per componenti, non di stringhe: "1.10.0" > "1.9.0" con il confronto lessico
- * darebbe il risultato opposto. Un componente non numerico (build di debug con
- * versionName "0.1", "-rc1") vale 0 invece di far fallire il confronto.
+ * Numeric per component, not by string: with a lexicographic comparison "1.10.0" >
+ * "1.9.0" would come out the other way round. A component that is not a number (a debug
+ * build with versionName "0.1", "-rc1") counts as 0 instead of breaking the comparison.
  */
 internal fun isNewerVersion(remote: String, local: String): Boolean {
     val remoteParts = versionParts(remote)

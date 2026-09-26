@@ -15,9 +15,9 @@ class PoiTest {
 
     @Test
     fun keepsTheApiParameterGoogleRequires() {
-        // Senza api=1 Google ignora tutti gli altri parametri: la documentazione lo dice
-        // esplicitamente, quindi questo assert esiste perche' si vede subito se qualcuno
-        // "semplifica" la URL togliendolo.
+        // Without api=1 Google ignores all the other parameters: the documentation says so
+        // explicitly, so this assertion exists because it shows at once if somebody
+        // "simplifies" the URL by removing it.
         assertTrue(buildPlaceUrl("Bar").contains("?api=1&query="))
     }
 
@@ -31,9 +31,9 @@ class PoiTest {
 
     @Test
     fun aNameCannotInjectAnotherParameter() {
-        // "Bar&origin=my location" deve finire tutto dentro query, non diventare un
-        // parametro: il link non puo' dire a Google da dove parte l'utente. Anche il "+"
-        // del nome diventa %2B, cosi' non viene riletto come uno spazio.
+        // "Bar&origin=my location" must end up entirely inside query, not become a
+        // parameter: the link cannot tell Google where the user starts from. Even the "+"
+        // of the name becomes %2B, so it is not read back as a space.
         assertEquals(
             "https://www.google.com/maps/search/?api=1&query=Bar%26origin%3Dmy%2Blocation",
             buildPlaceUrl("Bar&origin=my+location"),

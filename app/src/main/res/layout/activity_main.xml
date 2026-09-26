@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-    <!-- targetSdk 36 = edge-to-edge obbligatorio: senza fitsSystemWindows il pannello in
-         alto finisce sotto la barra di stato e il bottone posizione sotto quella di
-         navigazione. Le due strisce rimaste libere mostrano il windowBackground. -->
+    <!-- targetSdk 36 = edge-to-edge mandatory: without fitsSystemWindows the panel at the
+         top ends up under the status bar and the position button under the navigation
+         bar. The two strips left free show the windowBackground. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
@@ -324,8 +324,8 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Credito OSM sempre visibile: obbligo ODbL anche a pannello compresso.
-             Un tocco apre le licenze (testi in assets/licenses.txt). -->
+        <!-- OSM credit always visible: ODbL obligation also with the panel collapsed.
+             One touch opens the licences (texts in assets/licenses.txt). -->
         <TextView
             android:id="@+id/mapCredit"
             android:layout_width="match_parent"

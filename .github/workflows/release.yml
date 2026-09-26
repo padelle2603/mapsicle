@@ -21,21 +21,21 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Accetta licenze Android SDK
+      - name: Accept the Android SDK licences
         run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
-      - name: Recupera keystore
+      - name: Fetch the keystore
         run: mkdir -p keystore && echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/mapsicle.jks
 
-      - name: Calcola versionCode e verifica che cresca
+      - name: Compute the versionCode and check that it grows
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # versionCode = major*1000000 + minor*1000 + patch (0.6.1 -> 6001). Contano
-          # tutti e tre i componenti: la formula precedente ignorava il patch, quindi
-          # v0.5.1 e' uscito con lo stesso versionCode di v0.5.0 (1005) e Android non
-          # lo installava sopra. Ricominciamo da 4000/5000/6000: un buco nel numbering
-          # non importa, conta solo che cresca sempre.
+          # versionCode = major*1000000 + minor*1000 + patch (0.6.1 -> 6001). All three
+          # components count: the previous formula ignored the patch, so v0.5.1 came out
+          # with the same versionCode as v0.5.0 (1005) and Android would not install it
+          # on top. We start again from 4000/5000/6000: a hole in the numbering does not
+          # matter, all that counts is that it always grows.
           version="${GITHUB_REF_NAME#v}"
           major="${version%%.*}"
           rest="${version#*.}"
@@ -43,9 +43,9 @@ jobs:
           patch="${rest##*.}"
           version_code=$(( major * 1000000 + minor * 1000 + patch ))
 
-          # Se il versionCode non cresce, il pacchetto viene rifiutato come downgrade e
-          # dopo la release non si puo' piu' rimediare. La release corrente non esiste
-          # ancora qui: viene pubblicata dopo il build.
+          # If the versionCode does not grow, the package is refused as a downgrade and
+          # after the release there is no fixing it. The current release does not exist
+          # here yet: it is published after the build.
           previous="$(gh release list --limit 1 --json tagName -q '.[0].tagName' || true)"
           if [ -n "$previous" ] && [ "$previous" != "$GITHUB_REF_NAME" ]; then
             prev_version="${previous#v}"
@@ -55,21 +55,21 @@ jobs:
             prev_patch="${prev_rest##*.}"
             previous_code=$(( prev_major * 1000000 + prev_minor * 1000 + prev_patch ))
             if [ "$version_code" -le "$previous_code" ]; then
-              echo "::error::versionCode $version_code non supera $previous_code di $previous"
+              echo "::error::versionCode $version_code does not pass $previous_code of $previous"
               exit 1
             fi
             echo "versionCode $previous_code ($previous) -> $version_code ($GITHUB_REF_NAME)"
           else
-            echo "prima release: versionCode $version_code"
+            echo "first release: versionCode $version_code"
           fi
           echo "versionName=${version} versionCode=${version_code}"
           echo "version_code=$version_code" >> "$GITHUB_ENV"
 
-      - name: Test e lint
+      - name: Test and lint
         run: |
           ./gradlew :app:testDebugUnitTest :app:lintRelease
 
-      - name: Build release APK
+      - name: Build the release APK
         run: |
           ./gradlew :app:assembleRelease \
             -PversionName="${GITHUB_REF_NAME#v}" \
@@ -80,13 +80,13 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Pubblica release
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # L'asset si chiama mapsicle-v<tag>.apk. La sintassi "file#label" di gh
-          # cambierebbe solo l'etichetta mostrata, non il nome scaricabile: il file
-          # va rinominato davvero.
+          # The asset is called mapsicle-v<tag>.apk. The "file#label" syntax of gh would
+          # only change the displayed label, not the downloadable name: the file has to
+          # be renamed for real.
           apk="app/build/outputs/apk/release/mapsicle-${GITHUB_REF_NAME}.apk"
           mv app/build/outputs/apk/release/app-release.apk "$apk"
           gh release create "$GITHUB_REF_NAME" "$apk" \
