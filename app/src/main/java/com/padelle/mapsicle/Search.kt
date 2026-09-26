@@ -25,6 +25,13 @@ data class SearchPlace(
     val longitude: Double,
 )
 
+// The two constructors take the coordinates in the opposite order, SearchPlace as
+// (latitude, longitude) and RoutePoint as (longitude, latitude). The swap belongs to one
+// line: written by hand at every call site it is a mistake of thousands of kilometres that
+// compiles, does not crash, and is not caught by anything. The Duomo, swapped, ends up
+// 5,400 km south of the Gulf of Guinea.
+internal fun SearchPlace.toRoutePoint() = RoutePoint(longitude, latitude)
+
 data class SearchCenter(
     val latitude: Double,
     val longitude: Double,

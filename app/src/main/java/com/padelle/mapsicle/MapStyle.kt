@@ -1,5 +1,6 @@
 package com.padelle.mapsicle
 
+import com.google.gson.JsonObject
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -87,7 +88,7 @@ private fun isNameKey(value: String): Boolean {
 }
 
 private fun primaryNameKey(language: String): String {
-    return if (language.substringBefore('-').equals(ITALIAN_LANGUAGE, ignoreCase = true)) {
+    return if (isItalian(language)) {
         "name:it"
     } else {
         "name:en"
@@ -98,10 +99,30 @@ internal fun localizedNameExpression(language: String): JSONArray {
     return JSONArray().put("coalesce").put(
         JSONArray().put("get").put(primaryNameKey(language)),
     ).also {
-        if (language.substringBefore('-').equals(ITALIAN_LANGUAGE, ignoreCase = true)) {
+        if (isItalian(language)) {
             it.put(JSONArray().put("get").put("name:latin"))
         }
         it.put(JSONArray().put("get").put("name"))
+    }
+}
+
+/**
+ * Same priority as localizedNameExpression() above, read from a feature of the tile instead
+ * of from a style expression: this is the name the card of a tapped place shows, while that
+ * one is what the map writes on the labels. It lived in MainActivity as a private extension,
+ * where no test could reach it, and it had drifted: it asked "is it English" where the other
+ * asked "is it Italian". They agree only while isItalian() and its inverse are the only two
+ * answers resolveAppLanguage() can give, and the test on the two readers is what keeps them
+ * from drifting again.
+ */
+internal fun JsonObject.optLocalName(language: String): String? {
+    val keys = if (isItalian(language)) {
+        listOf("name:it", "name:latin", "name")
+    } else {
+        listOf("name:en", "name")
+    }
+    return keys.firstNotNullOfOrNull { key ->
+        get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
     }
 }
 

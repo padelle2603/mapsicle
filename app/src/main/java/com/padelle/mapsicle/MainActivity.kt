@@ -33,7 +33,6 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
-import com.google.gson.JsonObject
 import com.padelle.mapsicle.databinding.ActivityMainBinding
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -859,7 +858,7 @@ class MainActivity : Activity() {
                 category,
                 formatDistance(
                     distanceMeters(
-                        RoutePoint(place.longitude, place.latitude),
+                        place.toRoutePoint(),
                         RoutePoint(fix.longitude, fix.latitude),
                     ),
                     displayLocale,
@@ -1224,18 +1223,6 @@ class MainActivity : Activity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-
-    /** Same priority as localizedNameExpression(), which on the labels reads name:it. */
-    private fun JsonObject.optLocalName(language: String): String? {
-        val keys = if (language.startsWith(ENGLISH_LANGUAGE, ignoreCase = true)) {
-            listOf("name:en", "name")
-        } else {
-            listOf("name:it", "name:latin", "name")
-        }
-        return keys.firstNotNullOfOrNull { key ->
-            get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
-        }
-    }
 
     // Tappable OSM credit: this is where the obligation to deliver the licences ends
     // (Apache-2.0 sections 4a/4d). A scrollable TextView inside the dialog: 15 KB of

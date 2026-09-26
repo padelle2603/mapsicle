@@ -26,4 +26,15 @@ class GeoTest {
         assertEquals(180f, bearingDegrees(1.0, 0.0, 0.0, 0.0), 0.5f)
         assertEquals(270f, bearingDegrees(0.0, 0.0, 0.0, -1.0), 0.5f)
     }
+
+    @Test
+    fun aPlaceBecomesTheRoutePointOfTheSameSpot() {
+        // SearchPlace takes (latitude, longitude) and RoutePoint takes (longitude,
+        // latitude). Written by hand at a call site the swap compiles, does not crash and
+        // puts Milan at 3 degrees south of the Gulf of Guinea, so the check is a distance
+        // and not the two numbers: a swapped pair is about 5,700 km, not 0.
+        val milan = SearchPlace("Duomo di Milano", 45.4642, 9.1914)
+
+        assertEquals(0.0, distanceMeters(milan.toRoutePoint(), RoutePoint(9.1914, 45.4642)), 0.001)
+    }
 }

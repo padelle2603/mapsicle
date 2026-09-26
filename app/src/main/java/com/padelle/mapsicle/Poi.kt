@@ -33,11 +33,11 @@ internal const val MAX_CANDIDATE_METERS = 250.0
  * its own is the safer link.
  */
 internal fun resolvePlaceQuery(place: SearchPlace, addresses: List<SearchPlace>): String {
-    val tapped = RoutePoint(place.longitude, place.latitude)
+    val tapped = place.toRoutePoint()
     val nearest = addresses.minByOrNull {
-        distanceMeters(tapped, RoutePoint(it.longitude, it.latitude))
+        distanceMeters(tapped, it.toRoutePoint())
     } ?: return place.displayName
-    val gap = distanceMeters(tapped, RoutePoint(nearest.longitude, nearest.latitude))
+    val gap = distanceMeters(tapped, nearest.toRoutePoint())
     return if (gap <= MAX_CANDIDATE_METERS) {
         "${place.displayName}, ${nearest.displayName}"
     } else {
