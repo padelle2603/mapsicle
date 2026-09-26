@@ -279,3 +279,5 @@ The full list of bundled third-party components and their licenses is in
 - [PRIVACY.md](PRIVACY.md) — what leaves your device, and what stays on it
 - [LEGAL.md](LEGAL.md) — license, third-party components, attributions
 - [LICENSE](LICENSE) — MIT
+
+*Developed with the assistance of [opencode](https://opencode.ai).*
