@@ -10,8 +10,6 @@ theme straight from the system.
 - **Users** — [Install](#install-in-30-seconds) · [What you can do](#what-you-can-do) ·
   [Permissions](#permissions-and-why) · [What it does not do](#what-it-does-not-do) ·
   [Privacy](#privacy-in-three-lines) · [Troubleshooting](#if-something-does-not-work)
-- **Developers** — [Building](#building-locally) · [Tests](#tests) ·
-  [Releases](#releases) · [Project structure](#project-structure)
 
 Application ID `com.padelle.mapsicle` · min SDK 23 (Android 6.0) · target SDK 36
 · MIT licensed.
