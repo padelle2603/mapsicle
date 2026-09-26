@@ -1,7 +1,11 @@
 package com.padelle.mapsicle
 
+import android.app.Activity
+import android.app.AlertDialog
+import android.os.Handler
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.Executor
 
 internal const val LATEST_RELEASE_URL =
     "https://api.github.com/repos/padelle2603/mapsicle/releases/latest"
@@ -67,5 +71,51 @@ internal fun isNewerVersion(remote: String, local: String): Boolean {
 private fun versionParts(version: String): List<Int> {
     return version.removePrefix("v").split('.').map { part ->
         part.takeWhile { it.isDigit() }.toIntOrNull() ?: 0
+    }
+}
+
+/**
+ * One request to GitHub to find out whether there is a release newer than this build. It
+ * fails silently: no network, no new thread, no dialog, no writing to disk. The pool is
+ * the one of the style, the search and the routing, handed in rather than created, and
+ * fetchJson is the same httpGet the search uses.
+ *
+ * The two questions worth testing are answered by the functions above and tested in
+ * UpdateTest; what is left here is the glue between them and a dialog, which is not worth
+ * a test of its own.
+ */
+internal class UpdateCheck(
+    private val activity: Activity,
+    private val handler: Handler,
+    private val executor: Executor,
+    private val currentVersion: String,
+    private val fetchJson: (String) -> String,
+) {
+    fun check() {
+        executor.execute {
+            val release = runCatching {
+                parseLatestRelease(fetchJson(LATEST_RELEASE_URL))
+            }.getOrNull() ?: return@execute
+            if (!isNewerVersion(release.version, currentVersion)) {
+                return@execute
+            }
+            handler.post {
+                if (activity.isGone()) {
+                    return@post
+                }
+                showDialog(release)
+            }
+        }
+    }
+
+    private fun showDialog(release: AppRelease) {
+        AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.update_available, release.version))
+            .setMessage(activity.getString(R.string.update_message, currentVersion))
+            .setPositiveButton(R.string.update_download) { _, _ ->
+                activity.openExternalUrl(release.apkUrl ?: release.notesUrl)
+            }
+            .setNegativeButton(R.string.update_not_now, null)
+            .show()
     }
 }

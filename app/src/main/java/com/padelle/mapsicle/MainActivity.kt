@@ -10,9 +10,7 @@ package com.padelle.mapsicle
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -20,7 +18,6 @@ import android.graphics.RectF
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -73,6 +70,14 @@ class MainActivity : Activity() {
     // 3 threads: style download, routing and search do not block each other.
     private val executor: ExecutorService = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val updateCheck = UpdateCheck(
+        activity = this,
+        handler = mainHandler,
+        executor = executor,
+        currentVersion = BuildConfig.VERSION_NAME,
+        fetchJson = ::httpGet,
+    )
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -179,8 +184,7 @@ class MainActivity : Activity() {
             loadedMap.addOnMapClickListener { latLng -> onMapClick(latLng) }
             loadMapStyle(loadedMap)
         }
-        checkForNewRelease()
-
+        updateCheck.check()
         configurePanel()
         configureSearchField(binding.startInput)
         configureSearchField(binding.destinationInput)
@@ -431,7 +435,7 @@ class MainActivity : Activity() {
                 parseRouteResponse(httpGet(buildRouteUrl(start, destination, mode)))
             }
             mainHandler.post {
-                if (isFinishing || isDestroyed || requestId != routeRequestId) {
+                if (isGone() || requestId != routeRequestId) {
                     return@post
                 }
                 routeInFlight = false
@@ -891,7 +895,7 @@ class MainActivity : Activity() {
         executor.execute {
             val addresses = runCatching { parsePlaceAddresses(httpGet(url)) }.getOrNull().orEmpty()
             mainHandler.post {
-                if (isFinishing || isDestroyed) {
+                if (isGone()) {
                     return@post
                 }
                 openExternalUrl(buildPlaceUrl(resolvePlaceQuery(place, addresses)))
@@ -900,55 +904,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Opens a link in another app. A VIEW Intent with no app able to handle it throws
-     * ActivityNotFoundException: a Toast is better than a crash. It serves both the link
-     * to the POI on Google Maps and the download of the update.
-     */
-    private fun openExternalUrl(url: String) {
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.error_no_app_for_link, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /**
-     * One request to GitHub to find out whether there is a release newer than this build.
-     * It fails silently: no network, no new thread, no dialog, no writing to disk. The
-     * pool is already the one of the style, the search and the routing.
-     */
-    private fun checkForNewRelease() {
-        executor.execute {
-            val release = runCatching {
-                parseLatestRelease(httpGet(LATEST_RELEASE_URL))
-            }.getOrNull() ?: return@execute
-            if (!isNewerVersion(release.version, BuildConfig.VERSION_NAME)) {
-                return@execute
-            }
-            mainHandler.post {
-                if (isFinishing || isDestroyed) {
-                    return@post
-                }
-                showNewReleaseDialog(release)
-            }
-        }
-    }
-
-    private fun showNewReleaseDialog(release: AppRelease) {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.update_available, release.version))
-            .setMessage(getString(R.string.update_message, BuildConfig.VERSION_NAME))
-            .setPositiveButton(R.string.update_download) { _, _ ->
-                openExternalUrl(release.apkUrl ?: release.notesUrl)
-            }
-            .setNegativeButton(R.string.update_not_now, null)
-            .show()
-    }
-
-    /**
      * "Directions" on a POI: it starts from my position if the departure field is empty or
-     * already holds my position, otherwise it respects the typed departure. If there is
-     * no fix yet, we come back here when it arrives, or after the permission.
+     * already holds my position, otherwise it respects the typed departure. If there is no
+     * fix yet, we come back here when it arrives, or after the permission.
      */
     private fun routeToPlace(place: SearchPlace) {
         if (startPlace == null || startAtUserPosition) {
@@ -986,7 +944,7 @@ class MainActivity : Activity() {
                     .fromJson(buildMapStyleJson(httpGet(styleUrl), appLanguage))
             }.getOrNull()
             mainHandler.post {
-                if (isFinishing || isDestroyed) {
+                if (isGone()) {
                     return@post
                 }
                 if (localizedStyle != null) {
@@ -1057,7 +1015,7 @@ class MainActivity : Activity() {
             centerOnUser(cached, animate = false)
         }
         singleLocation.request { fresh ->
-            if (isFinishing || isDestroyed || fresh == null) {
+            if (isGone() || fresh == null) {
                 return@request
             }
             centerOnUser(fresh, animate = true)
@@ -1070,7 +1028,7 @@ class MainActivity : Activity() {
         val cached = singleLocation.lastKnown()
         cached?.let { centerOnUser(it, animate = false) }
         singleLocation.request { fresh ->
-            if (isFinishing || isDestroyed) {
+            if (isGone()) {
                 return@request
             }
             if (fresh == null) {
@@ -1111,7 +1069,7 @@ class MainActivity : Activity() {
 
     private fun requestCurrentLocation() {
         singleLocation.request { location ->
-            if (isFinishing || isDestroyed) {
+            if (isGone()) {
                 return@request
             }
             if (location == null) {
