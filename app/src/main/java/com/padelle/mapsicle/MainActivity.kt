@@ -7,11 +7,8 @@
 
 package com.padelle.mapsicle
 
-import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.RectF
@@ -67,6 +64,8 @@ class MainActivity : Activity() {
     private val executor: ExecutorService = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private val locationAccess = LocationAccess(this)
+
     private val updateCheck = UpdateCheck(
         activity = this,
         handler = mainHandler,
@@ -104,7 +103,6 @@ class MainActivity : Activity() {
     private var guidanceActive = false
     private var locationUpdatesActive = false
     private var cameraFollow = false
-    private var pendingPermissionAction = PermissionAction.NONE
 
     // Last fix received: needed to recreate the marker when the style is reloaded and to
     // decide where to put the camera on the first start.
@@ -198,9 +196,9 @@ class MainActivity : Activity() {
         binding.locationButton.setOnClickListener {
             // the bottom right button only centres: it must not overwrite the departure
             // field, or it would move what you had typed.
-            if (!hasFineLocation() && !hasCoarseLocation()) {
-                pendingPermissionAction = PermissionAction.CENTER_ON_USER
-                requestLocationPermissions()
+            if (!locationAccess.hasAny()) {
+                locationAccess.pending = LocationAccess.PendingAction.CENTER_ON_USER
+                locationAccess.request()
             } else {
                 recenterOnUser()
             }
@@ -217,7 +215,7 @@ class MainActivity : Activity() {
         super.onResume()
         mapView.onResume()
         // the position marker follows whenever the app is in the foreground
-        if (hasFineLocation()) {
+        if (locationAccess.hasFine()) {
             startLocationUpdates()
         }
     }
@@ -321,7 +319,7 @@ class MainActivity : Activity() {
     }
 
     private fun invalidateRoute() {
-        pendingPermissionAction = PermissionAction.NONE
+        locationAccess.pending = LocationAccess.PendingAction.NONE
         guidanceActive = false
         currentRoute = null
         // it also invalidates the request in flight, otherwise a route calculated for
@@ -467,9 +465,9 @@ class MainActivity : Activity() {
 
     private fun acceptRoute() {
         val route = currentRoute ?: return
-        if (!hasFineLocation()) {
-            pendingPermissionAction = PermissionAction.ACCEPT_ROUTE
-            requestLocationPermissions()
+        if (!locationAccess.hasFine()) {
+            locationAccess.pending = LocationAccess.PendingAction.ACCEPT_ROUTE
+            locationAccess.request()
             return
         }
         startGuidance(route)
@@ -479,7 +477,7 @@ class MainActivity : Activity() {
         currentRoute = route
         guidanceActive = true
         cameraFollow = true
-        pendingPermissionAction = PermissionAction.NONE
+        locationAccess.pending = LocationAccess.PendingAction.NONE
         binding.routeContent.visibility = View.GONE
         binding.navigationContent.visibility = View.VISIBLE
         binding.acceptRouteButton.visibility = View.GONE
@@ -537,7 +535,7 @@ class MainActivity : Activity() {
         if (locationUpdatesActive) {
             return
         }
-        if (!hasFineLocation()) {
+        if (!locationAccess.hasFine()) {
             return
         }
         val manager = locationManager()
@@ -784,11 +782,11 @@ class MainActivity : Activity() {
      */
     private fun routeToPlace(place: SearchPlace) {
         if (startPlace == null || startAtUserPosition) {
-            if (!hasFineLocation()) {
+            if (!locationAccess.hasFine()) {
                 pendingPlace = place
-                pendingPermissionAction = PermissionAction.ROUTE_TO_PLACE
+                locationAccess.pending = LocationAccess.PendingAction.ROUTE_TO_PLACE
                 setRouteStatus(getString(R.string.location_searching))
-                requestLocationPermissions()
+                locationAccess.request()
                 return
             }
             val fix = lastUserFix ?: singleLocation.lastKnown()
@@ -882,7 +880,7 @@ class MainActivity : Activity() {
      * waiting for the GPS fix.
      */
     private fun locateUserOnStartup() {
-        if (!hasFineLocation() && !hasCoarseLocation()) {
+        if (!locationAccess.hasAny()) {
             return
         }
         singleLocation.lastKnown()?.let { cached ->
@@ -931,10 +929,10 @@ class MainActivity : Activity() {
 
     private fun requestLocation() {
         setPanelCollapsed(false)
-        if (!hasFineLocation() && !hasCoarseLocation()) {
-            pendingPermissionAction = PermissionAction.SET_START_LOCATION
+        if (!locationAccess.hasAny()) {
+            locationAccess.pending = LocationAccess.PendingAction.SET_START_LOCATION
             setRouteStatus(getString(R.string.location_searching))
-            requestLocationPermissions()
+            locationAccess.request()
             return
         }
         setRouteStatus(getString(R.string.location_searching))
@@ -970,24 +968,22 @@ class MainActivity : Activity() {
         if (requestCode != LOCATION_REQUEST_CODE) {
             return
         }
-        if (hasFineLocation() || hasCoarseLocation()) {
+        if (locationAccess.hasFine() || locationAccess.hasCoarse()) {
             // onResume has already passed before the dialog: without this the updates do
             // not start until the app comes back to the foreground.
             startLocationUpdates()
         }
-        when (pendingPermissionAction) {
-            PermissionAction.ACCEPT_ROUTE -> {
-                pendingPermissionAction = PermissionAction.NONE
-                if (hasFineLocation()) {
+        when (locationAccess.consumePending()) {
+            LocationAccess.PendingAction.ACCEPT_ROUTE -> {
+                if (locationAccess.hasFine()) {
                     currentRoute?.let(::startGuidance)
                 } else {
                     setRouteStatus(getString(R.string.location_permission_denied))
                 }
             }
 
-            PermissionAction.SET_START_LOCATION -> {
-                pendingPermissionAction = PermissionAction.NONE
-                if (hasFineLocation() || hasCoarseLocation()) {
+            LocationAccess.PendingAction.SET_START_LOCATION -> {
+                if (locationAccess.hasFine() || locationAccess.hasCoarse()) {
                     setRouteStatus(getString(R.string.location_searching))
                     requestCurrentLocation()
                 } else {
@@ -995,20 +991,18 @@ class MainActivity : Activity() {
                 }
             }
 
-            PermissionAction.CENTER_ON_USER -> {
-                pendingPermissionAction = PermissionAction.NONE
-                if (hasFineLocation() || hasCoarseLocation()) {
+            LocationAccess.PendingAction.CENTER_ON_USER -> {
+                if (locationAccess.hasFine() || locationAccess.hasCoarse()) {
                     recenterOnUser()
                 } else {
                     setRouteStatus(getString(R.string.location_permission_denied))
                 }
             }
 
-            PermissionAction.ROUTE_TO_PLACE -> {
-                pendingPermissionAction = PermissionAction.NONE
+            LocationAccess.PendingAction.ROUTE_TO_PLACE -> {
                 // The precise position is needed: with only the approximate one the route
                 // would start up to 1 km off, so no return to routeToPlace().
-                if (hasFineLocation()) {
+                if (locationAccess.hasFine()) {
                     pendingPlace?.let(::routeToPlace)
                 } else {
                     pendingPlace = null
@@ -1016,32 +1010,8 @@ class MainActivity : Activity() {
                 }
             }
 
-            PermissionAction.NONE -> Unit
+            LocationAccess.PendingAction.NONE -> Unit
         }
-    }
-
-    private fun requestLocationPermissions() {
-        requestPermissions(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-            ),
-            LOCATION_REQUEST_CODE,
-        )
-    }
-
-    private fun hasFineLocation(): Boolean {
-        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun hasCoarseLocation(): Boolean {
-        return checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun locationManager(): LocationManager {
-        return getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
     private fun setRouteStatus(message: String) {
@@ -1066,21 +1036,12 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private enum class PermissionAction {
-        NONE,
-        ACCEPT_ROUTE,
-        SET_START_LOCATION,
-        CENTER_ON_USER,
-        ROUTE_TO_PLACE,
-    }
-
     private companion object {
         // OpenFreeMap: free and with no API key. Liberty is the classic OSM style in
         // colour (green parks, blue water); 111 layers / 43 KB against the 160 layers /
         // 167 KB of MapTiler Streets.
         const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
         val USER_AGENT = "Mapsicle/${BuildConfig.VERSION_NAME} (Android; ${BuildConfig.APPLICATION_ID})"
-        const val LOCATION_REQUEST_CODE = 1001
         const val LOCATION_UPDATE_INTERVAL_MS = 1_000L
         const val LOCATION_UPDATE_MIN_DISTANCE_METERS = 2f
         const val CAMERA_ANIMATION_MS = 600
