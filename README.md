@@ -168,9 +168,10 @@ contributors. Map data is available under the
 [OpenFreeMap](https://openfreemap.org/), the search by
 [Photon](https://photon.komoot.io/), the routing by [BRouter](https://brouter.de/).
 Please keep the attribution visible if you redistribute this app.
-The credit line is always on screen at the bottom of the panel; tapping it
-opens the app's own licenses (MIT, Apache-2.0, BSD-2-Clause), which also ship
-inside the APK.
+The line `© OpenStreetMap contributors · ODbL · Licenses` is always on screen at
+the bottom of the panel; tapping it opens the app's own licenses (MIT,
+Apache-2.0, BSD-2-Clause, and the ODbL notice for the map data), which also
+ship inside the APK.
 The full list of bundled third-party components and their licenses is in
 [LEGAL.md](LEGAL.md).
 

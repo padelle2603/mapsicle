@@ -194,7 +194,7 @@ they do not. Nothing in the app works around their limits.
 
 The full list of bundled third-party components and their licenses is in
 [LEGAL.md](LEGAL.md), and the same license texts are inside the app: tap the
-`© OpenStreetMap contributors` line at the bottom of the panel.
+`© OpenStreetMap contributors · ODbL · Licenses` line at the bottom of the panel.
 
 ## 7. Children
 

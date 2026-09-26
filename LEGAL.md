@@ -10,8 +10,9 @@ Mapsicle is free software, released under the **MIT License**.
   versions of it, you must keep the copyright notice and the license text.
 - There is **no warranty** — see the MIT license, sections "THE SOFTWARE IS
   PROVIDED AS IS". Use it at your own risk.
-- The same text is bundled in the app: tap the `© OpenStreetMap contributors`
-  line at the bottom of the panel.
+- The same text is bundled in the app: tap the
+  `© OpenStreetMap contributors · ODbL · Licenses` line at the bottom of the
+  panel.
 
 The map data is **not** covered by the MIT license: see the attributions below.
 
@@ -56,10 +57,12 @@ not only with its source. Keep the asset in the app if you fork Mapsicle.
 - The visible attribution *"OpenFreeMap · © OpenMapTiles · Data from
   OpenStreetMap"* is rendered by the attribution control inside the app, as the
   ODbL requires. **If you redistribute Mapsicle, keep that attribution visible.**
-- The line `© OpenStreetMap contributors` is also always on screen, at the
-  bottom of the panel, collapsed or not, and opens the app's licenses on tap.
-  This is the one line to keep if you fork the app: it is the ODbL credit, and
-  it is also how the license texts stay reachable.
+- The line `© OpenStreetMap contributors · ODbL · Licenses` is also always on
+  screen, at the bottom of the panel, collapsed or not, and opens the app's
+  licenses on tap. It carries the credit notice of ODbL §4.1 and names the
+  license as §4.2 asks; the licenses screen it opens carries the full texts,
+  including the link to the ODbL. This is the one line to keep if you fork the
+  app: drop it and you break both the ODbL attribution and Apache-2.0 §4(a).
 
 ## Third-party services
 

@@ -57,7 +57,7 @@
     <string name="nav_exit_left">Take the left exit</string>
     <string name="nav_exit_right">Take the right exit</string>
     <string name="nav_continue_path">Continue along the route</string>
-    <string name="map_credit">© OpenStreetMap contributors · Licenses</string>
+    <string name="map_credit">© OpenStreetMap contributors · ODbL · Licenses</string>
     <string name="place_directions">Directions</string>
     <string name="place_open_in_google_maps">Open in Google Maps</string>
     <string name="error_no_app_for_link">No app can open this link</string>
