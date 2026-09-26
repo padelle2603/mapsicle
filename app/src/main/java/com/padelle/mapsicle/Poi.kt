@@ -1,8 +1,15 @@
 package com.padelle.mapsicle
 
+import android.app.Activity
+import android.app.AlertDialog
+import android.location.Location
+import android.os.Handler
+import android.widget.Toast
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.Locale
+import java.util.concurrent.Executor
 
 /**
  * Opens the POI in Google Maps. `query` is what Google itself recommends to link to one
@@ -85,3 +92,70 @@ private fun addressOf(properties: JSONObject?): String? {
     val cityLine = listOfNotNull(postcode.ifEmpty { null }, city).joinToString(" ")
     return listOf(street, cityLine).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null }
 }
+
+/**
+ * The card that opens when a POI icon on the map is tapped, and the button on it that hands
+ * the place to Google Maps. It is a view of three values and nothing else: the place, the
+ * category behind its name, and where the user is right now, which the caller passes in
+ * because the fix belongs to the Activity and asking for it on every call would be a
+ * lambda that reads a field nobody can see. No fix means the card says the category alone,
+ * which is what it did when the permission has not been granted.
+ *
+ * onRoute is the only piece of behaviour it does not own: "Directions" leads to the
+ * routing, and that is still tangled with the departure field of the Activity.
+ */
+internal class PlaceCard(
+    private val activity: Activity,
+    private val handler: Handler,
+    private val executor: Executor,
+    private val language: String,
+    private val locale: Locale,
+    private val fetchJson: (String) -> String,
+    private val onRoute: (SearchPlace) -> Unit,
+) {
+    fun show(place: SearchPlace, categoryRes: Int, fix: Location?) {
+        val category = activity.getString(categoryRes)
+        val message = if (fix == null) {
+            category
+        } else {
+            // I reuse the "%1$s · %2$s" format of the route summary: it is the same fact
+            activity.getString(
+                R.string.route_summary,
+                category,
+                formatDistance(
+                    distanceMeters(
+                        place.toRoutePoint(),
+                        RoutePoint(fix.longitude, fix.latitude),
+                    ),
+                    locale,
+                ),
+            )
+        }
+        AlertDialog.Builder(activity)
+            .setTitle(place.displayName)
+            .setMessage(message)
+            .setPositiveButton(R.string.place_directions) { _, _ -> onRoute(place) }
+            .setNeutralButton(R.string.place_open_in_google_maps) { _, _ -> openInGoogleMaps(place) }
+            .setNegativeButton(R.string.about_close, null)
+            .show()
+    }
+
+    private fun openInGoogleMaps(place: SearchPlace) {
+        Toast.makeText(activity, R.string.place_address_searching, Toast.LENGTH_SHORT).show()
+        val url = buildSuggestionUrl(
+            place.displayName,
+            language,
+            SearchCenter(place.latitude, place.longitude),
+        )
+        executor.execute {
+            val addresses = runCatching { parsePlaceAddresses(fetchJson(url)) }.getOrNull().orEmpty()
+            handler.post {
+                if (activity.isGone()) {
+                    return@post
+                }
+                activity.openExternalUrl(buildPlaceUrl(resolvePlaceQuery(place, addresses)))
+            }
+        }
+    }
+}
+

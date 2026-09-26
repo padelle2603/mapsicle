@@ -29,7 +29,6 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import com.padelle.mapsicle.databinding.ActivityMainBinding
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -62,6 +61,7 @@ import java.util.concurrent.TimeUnit
 class MainActivity : Activity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var suggestions: Suggestions
+    private lateinit var placeCard: PlaceCard
     private lateinit var singleLocation: SingleLocation
 
     private lateinit var mapView: MapView
@@ -147,6 +147,15 @@ class MainActivity : Activity() {
         setContentView(binding.root)
 
         suggestions = Suggestions(mainHandler, executor, appLanguage) { url -> httpGet(url) }
+        placeCard = PlaceCard(
+            activity = this,
+            handler = mainHandler,
+            executor = executor,
+            language = appLanguage,
+            locale = displayLocale,
+            fetchJson = { url -> httpGet(url) },
+            onRoute = { place -> routeToPlace(place) },
+        )
         suggestions.onSearching = {
             // Only if there is nothing to show yet: otherwise the "searching" text
             // blinks on every key pressed.
@@ -843,64 +852,12 @@ class MainActivity : Activity() {
             ?: return false
         val properties = place.first.properties() ?: return false
         val name = properties.optLocalName(appLanguage) ?: return false
-        showPlaceSheet(
+        placeCard.show(
             SearchPlace(name, place.second.latitude(), place.second.longitude()),
             poiCategoryLabelRes(properties.get("class")?.asString.orEmpty()),
+            lastUserFix,
         )
         return true
-    }
-
-    private fun showPlaceSheet(place: SearchPlace, categoryRes: Int) {
-        val fix = lastUserFix
-        val category = getString(categoryRes)
-        val message = if (fix == null) {
-            category
-        } else {
-            // I reuse the "%1$s · %2$s" format of the route summary: it is the same fact
-            getString(
-                R.string.route_summary,
-                category,
-                formatDistance(
-                    distanceMeters(
-                        place.toRoutePoint(),
-                        RoutePoint(fix.longitude, fix.latitude),
-                    ),
-                    displayLocale,
-                ),
-            )
-        }
-        AlertDialog.Builder(this)
-            .setTitle(place.displayName)
-            .setMessage(message)
-            .setPositiveButton(R.string.place_directions) { _, _ -> routeToPlace(place) }
-            .setNeutralButton(R.string.place_open_in_google_maps) { _, _ -> openPlaceInGoogleMaps(place) }
-            .setNegativeButton(R.string.about_close, null)
-            .show()
-    }
-
-    /**
-     * A chain name alone is a category, so Google answers with every branch instead of the one
-     * tapped: the address is what pins it down, and only Photon has one. The name of the POI
-     * biased on its own coordinates already gives the address, so this is the same request the
-     * search field makes. It fails to the name-only link, which is what the button did before,
-     * so a slow or absent network costs the fix for a chain and nothing else.
-     */
-    private fun openPlaceInGoogleMaps(place: SearchPlace) {
-        Toast.makeText(this, R.string.place_address_searching, Toast.LENGTH_SHORT).show()
-        val url = buildSuggestionUrl(
-            place.displayName,
-            appLanguage,
-            SearchCenter(place.latitude, place.longitude),
-        )
-        executor.execute {
-            val addresses = runCatching { parsePlaceAddresses(httpGet(url)) }.getOrNull().orEmpty()
-            mainHandler.post {
-                if (isGone()) {
-                    return@post
-                }
-                openExternalUrl(buildPlaceUrl(resolvePlaceQuery(place, addresses)))
-            }
-        }
     }
 
     /**
