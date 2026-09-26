@@ -34,7 +34,9 @@ once at start whether a newer release exists and offers it, so normally you do
 not come back to this page. One exception: `v1.2.0` was published twice under
 the same version number, the second time with the places, the Google Maps button
 and this update check, so if you installed the first `v1.2.0` the app will not
-offer you anything newer. Take the APK from the releases page.
+offer you anything newer. `v1.3.0` was republished the same way, first with the
+small cleanups and then with the rest of the split of `MainActivity`. Take the
+APK from the releases page.
 
 ## What you can do
 
@@ -155,10 +157,10 @@ or down; if it fails, try again in a moment.
 
 **The update dialog never appears.** It only appears for a version **newer**
 than the one you have, so if you are already on the latest there is nothing to
-show. `v1.2.0` in particular was published twice under the same version number:
-if you installed the first one, take the APK from the releases page. GitHub
-also allows 60 anonymous requests an hour per IP address, and past that the
-check fails silently without telling you.
+show. `v1.2.0` and `v1.3.0` in particular were each published twice under the
+same version number: if you installed the first one, take the APK from the
+releases page. GitHub also allows 60 anonymous requests an hour per IP address,
+and past that the check fails silently without telling you.
 
 **To uninstall.** Long press the icon and uninstall, like any other app. Nothing
 of yours is left on any server, because nothing ever was.
