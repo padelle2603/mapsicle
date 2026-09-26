@@ -77,7 +77,10 @@ that it moves immediately, and refines on the live one as soon as it arrives.
 **Send a place to Google Maps.** From the card of a tapped place, **Open in
 Google Maps** hands the place over to Google Maps, which knows the opening
 hours, the reviews, the phone number and the website that the map itself does
-not carry. If Google Maps is not installed, the same link opens in your browser.
+not carry. The map holds no addresses, so the app asks its geocoder for the
+street, the number and the postcode of the place you tapped: a chain like
+Starbucks opens the branch you tapped, not the list of every branch in the
+country. If Google Maps is not installed, the same link opens in your browser.
 
 **Stay current.** At every start the app asks GitHub, in one anonymous request,
 whether a newer release of Mapsicle exists. If it does, a dialog offers it: the

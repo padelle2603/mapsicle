@@ -61,8 +61,12 @@ sort nearby results first. The rounded coordinate is not a precise track of
 your movements, and it is never used to filter results: a search for a place far
 away from you keeps working exactly the same.
 
-Without the location permission, **no coordinate of any kind is sent**: the app
+Without the location permission, the app sends **no coordinate of your own**: it
 cannot centre itself on you and does not know where you are.
+
+The same service answers a second, different request, described in the next
+section: the coordinates it gets then are those of a place on the map, not
+yours.
 
 ### 2.3 Places on the map
 
@@ -73,13 +77,24 @@ one shows its name, its category and how far it is from you, all on your device:
 for directions to it is a routing request, and follows the next section.
 
 The "Open in Google Maps" button of that card is the one exception, and only
-because you tap it: it hands **the name of the place** to the Google Maps app (or
-to your browser, if Google Maps is not installed) through a normal
-`https://www.google.com/maps/search/?api=1&query=<name>` link. What happens to
-the request after that — including whether Google shows it to you as a
-search — is covered by [Google's privacy policy](https://policies.google.com/privacy).
-**Your position is not part of that link**, and Mapsicle sends no data to Google
-itself: the link is opened by the other app, not fetched by this one.
+because you tap it. A chain name on its own ("Starbucks") is a category, not an
+address, and Google answers it with the list of every branch, so the app first
+asks **Photon** for the street, the number and the postcode of the place you
+tapped, using its coordinates as a **ranking hint** and keeping the answer only
+if it is less than 250 m away. That is one request to the service of section 2.2,
+carrying the coordinates of a **place**, not of you: the place is already
+published on the tiles you downloaded. If Photon does not answer, the button
+falls back to the name alone, as it did before.
+
+The link it then opens carries **the name of the place and, when Phototon has
+one, its address** — `Starbucks, Via Torino 21, 20123 Milano` — as
+`https://www.google.com/maps/search/?api=1&query=<name, address>`, which is the
+format [Google's own documentation](https://developers.google.com/maps/documentation/urls/get-started)
+recommends for linking to a specific shop. What happens to the request after
+that is covered by
+[Google's privacy policy](https://policies.google.com/privacy). **Your position
+is not part of that link**, and Mapsicle sends no data to Google itself: the
+link is opened by the other app, not fetched by this one.
 
 ### 2.4 Routing — `brouter.de`
 

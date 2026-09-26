@@ -60,6 +60,7 @@
     <string name="map_credit">© OpenStreetMap contributors · ODbL · Licenses</string>
     <string name="place_directions">Directions</string>
     <string name="place_open_in_google_maps">Open in Google Maps</string>
+    <string name="place_address_searching">Looking up the address…</string>
     <string name="error_no_app_for_link">No app can open this link</string>
     <string name="update_available">Mapsicle %1$s is available</string>
     <string name="update_message">You are running %1$s. The download opens in your browser.</string>
