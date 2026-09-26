@@ -3,15 +3,24 @@
          top ends up under the status bar and the position button under the navigation
          bar. The two strips left free show the windowBackground. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true">
 
+    <!-- The compass, the button that brings the map back to north, is a child the
+         library adds to the MapView on its own, and its default corner is top right:
+         exactly where the panel below sits, opaque and with the higher elevation, so
+         40 of its 48 dp ended up behind it, visible and tappable neither. Bottom left
+         is the corner nothing else wants, once the MapLibre logo (88x23 dp) and the
+         attribution icon that already sit there are accounted for. -->
     <org.maplibre.android.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        app:maplibre_uiCompassGravity="bottom|start"
+        app:maplibre_uiCompassMarginBottom="36dp" />
 
     <LinearLayout
         android:id="@+id/searchPanel"
